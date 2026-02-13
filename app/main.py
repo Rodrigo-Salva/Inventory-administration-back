@@ -1,18 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.security import HTTPBearer
-from sqlalchemy.ext.asyncio import AsyncSession
-from .core.security import verify_token, create_access_token
-from .models.base import get_db
-from .dependencies import get_current_tenant
-from .api.v1 import auth, products  # Crearemos después
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from .api.v1 import auth, products
 
 app = FastAPI(title="Inventory SaaS", version="1.0.0")
 
-security = HTTPBearer()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(products.router, prefix="/api/v1", tags=["products"])
+app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
 
 @app.get("/")
 async def root():
-    return {"message": "Inventory SaaS API - ¡Listo para SaaS multi-tenant!"}
+    return {"message": "Inventory SaaS - Multi-tenant listo!"}
