@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, func
 from sqlalchemy.sql import expression
-from ..models.base import Base
+from sqlalchemy.orm import relationship
+from .base import Base
 
 class Tenant(Base):
     __tablename__ = "tenants"
@@ -9,5 +10,12 @@ class Tenant(Base):
     name = Column(String(100), nullable=False)
     subdomain = Column(String(50), unique=True, index=True)
     plan = Column(String(20), default="free")  # free, pro, enterprise
-    expires_at = Column(DateTime(timezone=True), server_default=func.now() + expression.literal_column("interval '30 days'"))
+    expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relaciones
+    users = relationship("User", back_populates="tenant")
+    products = relationship("Product", back_populates="tenant")
+    categories = relationship("Category", back_populates="tenant")
+    suppliers = relationship("Supplier", back_populates="tenant")
+
