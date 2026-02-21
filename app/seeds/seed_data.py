@@ -10,36 +10,28 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from passlib.context import CryptContext
-
 from app.core.config import settings
+from app.core.security import get_password_hash
 from app.models import Base, Tenant, User, Category, Supplier, Product
 from app.seeds.data.categories import CATEGORIES
 from app.seeds.data.suppliers import SUPPLIERS
 from app.seeds.data.products import PRODUCTS
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-async def clean_database(session: AsyncSession):
-    """Limpia todos los datos de la base de datos"""
-    print("🗑️  Limpiando base de datos...")
+async def clean_database(engine, session: AsyncSession):
+    """Limpia todos los datos de la base de datos recreando las tablas"""
+    print("🗑️  Limpiando base de datos (recreando tablas)...")
     
-    # Eliminar en orden inverso de dependencias
-    await session.execute("DELETE FROM inventory_movements")
-    await session.execute("DELETE FROM stock_alerts")
-    await session.execute("DELETE FROM audit_logs")
-    await session.execute("DELETE FROM products")
-    await session.execute("DELETE FROM suppliers")
-    await session.execute("DELETE FROM categories")
-    await session.execute("DELETE FROM users")
-    await session.execute("DELETE FROM tenants")
+    async with engine.begin() as conn:
+        # Importante: Base.metadata necesita que todos los modelos estén cargados
+        # lo cual ya ocurre arriba con los imports
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
     
-    await session.commit()
-    print("✅ Base de datos limpiada")
+    print("✅ Base de datos recreada exitosamente")
 
 
 async def create_tenant_and_user(session: AsyncSession):
@@ -55,7 +47,7 @@ async def create_tenant_and_user(session: AsyncSession):
     await session.flush()
     
     # Crear usuario admin
-    hashed_password = pwd_context.hash("demo123")
+    hashed_password = get_password_hash("demo123")
     user = User(
         tenant_id=tenant.id,
         email="admin@demo.com",
@@ -208,7 +200,7 @@ async def run_seeds(clean: bool = False):
         try:
             # Limpiar si se solicita
             if clean:
-                await clean_database(session)
+                await clean_database(engine, session)
             
             # Crear datos
             tenant_id = await create_tenant_and_user(session)

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # CORS
-    cors_origins: List[str] = ["*"]
+    cors_origins: List[str] | str = ["*"]
     
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     
     # File Upload (para futuras features)
     max_upload_size_mb: int = 5
-    allowed_image_extensions: List[str] = ["jpg", "jpeg", "png", "webp"]
+    allowed_image_extensions: List[str] | str = ["jpg", "jpeg", "png", "webp"]
 
     class Config:
         env_file = ".env"

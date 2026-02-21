@@ -34,10 +34,10 @@ class AuditLog(Base, TimestampMixin):
     
     # Índices compuestos
     __table_args__ = (
-        Index('idx_tenant_entity', 'tenant_id', 'entity_type', 'entity_id'),
-        Index('idx_tenant_action', 'tenant_id', 'action'),
-        Index('idx_tenant_date', 'tenant_id', 'created_at'),
-        Index('idx_entity_date', 'entity_type', 'entity_id', 'created_at'),
+        Index('idx_audit_logs_tenant_entity', 'tenant_id', 'entity_type', 'entity_id'),
+        Index('idx_audit_logs_tenant_action', 'tenant_id', 'action'),
+        Index('idx_audit_logs_tenant_date', 'tenant_id', 'created_at'),
+        Index('idx_audit_logs_entity_date', 'entity_type', 'entity_id', 'created_at'),
     )
     
     def __repr__(self):

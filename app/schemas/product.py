@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 from decimal import Decimal
 from datetime import datetime
@@ -213,6 +213,19 @@ class StockAlertOut(BaseModel):
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+
+# Bulk Import Schemas
+class BulkProductImport(BaseModel):
+    """Schema para importación masiva de productos"""
+    products: List[ProductCreate]
+
+
+class BulkImportResponse(BaseModel):
+    """Respuesta de importación masiva"""
+    created: int
+    skipped: int
+    errors: List[str] = []
 
 
 # Para evitar errores de forward reference

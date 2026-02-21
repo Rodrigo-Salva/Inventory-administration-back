@@ -4,6 +4,7 @@ from .category_repo import CategoryRepository
 from .supplier_repo import SupplierRepository
 from .inventory_movement_repo import InventoryMovementRepository
 from .stock_alert_repo import StockAlertRepository
+from .tenant_repo import TenantRepository
 
 # Mantener UserRepository si existe
 try:
@@ -19,4 +20,5 @@ __all__ = [
     "InventoryMovementRepository",
     "StockAlertRepository",
     "UserRepository",
+    "TenantRepository",
 ]

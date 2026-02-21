@@ -28,6 +28,7 @@ class Supplier(Base, TimestampMixin, SoftDeleteMixin):
     state = Column(String(100), nullable=True)
     country = Column(String(100), nullable=True)
     postal_code = Column(String(20), nullable=True)
+    website = Column(String(255), nullable=True)
     
     # Términos comerciales
     payment_terms = Column(String(100), nullable=True)  # ej: "30 días", "Contado"
@@ -45,8 +46,8 @@ class Supplier(Base, TimestampMixin, SoftDeleteMixin):
     
     # Índices
     __table_args__ = (
-        Index('idx_tenant_active', 'tenant_id', 'is_active'),
-        Index('idx_tenant_name', 'tenant_id', 'name'),
+        Index('idx_suppliers_tenant_active', 'tenant_id', 'is_active'),
+        Index('idx_suppliers_tenant_name', 'tenant_id', 'name'),
     )
     
     def __repr__(self):

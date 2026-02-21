@@ -42,9 +42,9 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     
     # Índices compuestos para optimización
     __table_args__ = (
-        Index('idx_tenant_category', 'tenant_id', 'category_id'),
-        Index('idx_tenant_active', 'tenant_id', 'is_active'),
-        Index('idx_tenant_stock', 'tenant_id', 'stock'),
+        Index('idx_products_tenant_category', 'tenant_id', 'category_id'),
+        Index('idx_products_tenant_active', 'tenant_id', 'is_active'),
+        Index('idx_products_tenant_stock', 'tenant_id', 'stock'),
     )
     
     @property

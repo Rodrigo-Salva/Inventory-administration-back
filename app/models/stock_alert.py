@@ -48,10 +48,10 @@ class StockAlert(Base, TimestampMixin):
     
     # Índices compuestos
     __table_args__ = (
-        Index('idx_tenant_status', 'tenant_id', 'status'),
-        Index('idx_tenant_type', 'tenant_id', 'alert_type'),
-        Index('idx_product_status', 'product_id', 'status'),
-        Index('idx_tenant_active', 'tenant_id', 'status', 'is_notified'),
+        Index('idx_alerts_tenant_status', 'tenant_id', 'status'),
+        Index('idx_alerts_tenant_type', 'tenant_id', 'alert_type'),
+        Index('idx_alerts_product_status', 'product_id', 'status'),
+        Index('idx_alerts_tenant_active', 'tenant_id', 'status', 'is_notified'),
     )
     
     def resolve(self):

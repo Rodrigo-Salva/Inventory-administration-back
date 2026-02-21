@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import get_db
@@ -8,7 +8,9 @@ from ...schemas.product import (
     ProductCreate,
     ProductUpdate,
     ProductOut,
-    ProductWithRelations
+    ProductWithRelations,
+    BulkProductImport,
+    BulkImportResponse
 )
 from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
 from ...core.exceptions import ProductNotFoundException, DuplicateResourceException
@@ -177,3 +179,44 @@ async def get_low_stock_products(
     repo = ProductRepository(db)
     products = await repo.get_low_stock_products(tenant_id)
     return products
+
+
+@router.post("/bulk", response_model=BulkImportResponse)
+async def bulk_create_products(
+    import_data: BulkProductImport,
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Importación masiva de productos"""
+    repo = ProductRepository(db)
+    created_count = 0
+    skipped_count = 0
+    errors = []
+    
+    for product_data in import_data.products:
+        try:
+            # Verificar si el SKU ya existe
+            existing = await repo.get_by_sku(product_data.sku, tenant_id)
+            if existing:
+                skipped_count += 1
+                continue
+            
+            # Crear producto
+            product_dict = product_data.model_dump()
+            product_dict["tenant_id"] = tenant_id
+            product_dict["is_active"] = 1 if product_data.is_active else 0
+            
+            await repo.create(product_dict)
+            created_count += 1
+            
+        except Exception as e:
+            errors.append(f"Error en SKU {product_data.sku}: {str(e)}")
+            continue
+            
+    await db.commit()
+    
+    return BulkImportResponse(
+        created=created_count,
+        skipped=skipped_count,
+        errors=errors
+    )

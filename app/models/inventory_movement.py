@@ -47,10 +47,10 @@ class InventoryMovement(Base, TimestampMixin):
     
     # Índices compuestos
     __table_args__ = (
-        Index('idx_tenant_product', 'tenant_id', 'product_id'),
-        Index('idx_tenant_type', 'tenant_id', 'movement_type'),
-        Index('idx_tenant_date', 'tenant_id', 'created_at'),
-        Index('idx_product_date', 'product_id', 'created_at'),
+        Index('idx_movements_tenant_product', 'tenant_id', 'product_id'),
+        Index('idx_movements_tenant_type', 'tenant_id', 'movement_type'),
+        Index('idx_movements_tenant_date', 'tenant_id', 'created_at'),
+        Index('idx_movements_product_date', 'product_id', 'created_at'),
     )
     
     @property

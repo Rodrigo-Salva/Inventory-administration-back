@@ -1,19 +1,4 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from ..core.config import settings
-
-Base = declarative_base()
-
-engine = create_async_engine(settings.database_url, echo=True)
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+from .base import Base, get_db, engine
 
 # Importar todos los modelos para que Alembic los detecte
 from .tenant import Tenant
@@ -28,6 +13,7 @@ from .audit_log import AuditLog
 __all__ = [
     "Base",
     "get_db",
+    "engine",
     "Tenant",
     "User",
     "Product",

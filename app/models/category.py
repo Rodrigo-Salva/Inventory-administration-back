@@ -27,8 +27,8 @@ class Category(Base, TimestampMixin, SoftDeleteMixin):
     
     # Índices compuestos
     __table_args__ = (
-        Index('idx_tenant_parent', 'tenant_id', 'parent_id'),
-        Index('idx_tenant_name', 'tenant_id', 'name'),
+        Index('idx_categories_tenant_parent', 'tenant_id', 'parent_id'),
+        Index('idx_categories_tenant_name', 'tenant_id', 'name'),
     )
     
     @property

@@ -160,6 +160,25 @@ class ProductRepository(BaseRepository[Product]):
         items = result.scalars().all()
         return items, len(items)
     
+    async def get_all_with_relations(
+        self,
+        tenant_id: int,
+        limit: int = 1000
+    ) -> List[Product]:
+        """Obtiene todos los productos con sus relaciones cargadas"""
+        query = select(Product).where(
+            and_(
+                Product.tenant_id == tenant_id,
+                Product.is_deleted == False
+            )
+        ).options(
+            selectinload(Product.category),
+            selectinload(Product.supplier)
+        ).limit(limit)
+        
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
     async def update_stock(self, product_id: int, new_stock: int, tenant_id: int) -> Optional[Product]:
         """Actualiza el stock de un producto"""
         product = await self.get_by_id(product_id, tenant_id)
