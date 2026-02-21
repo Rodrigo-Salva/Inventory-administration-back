@@ -1,26 +1,101 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+import os
+import shutil
 
 from ...models.base import get_db
-from ...dependencies import get_current_admin, get_current_tenant
+from ...models import User
+from ...dependencies import get_current_admin, get_current_tenant, get_current_user
 from ...repositories.user_repo import UserRepository
 from ...schemas.user import UserCreate, UserUpdate, UserOut
 from ...core.security import get_password_hash
 from ...core.logging_config import get_logger
+from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
 
 logger = get_logger(__name__)
 router = APIRouter()
 
-@router.get("", response_model=List[UserOut])
+@router.get("/me", response_model=UserOut)
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    """Obtiene el perfil del usuario actual"""
+    return current_user
+
+@router.patch("/me", response_model=UserOut)
+async def update_current_user_profile(
+    user_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Actualiza el perfil del usuario actual"""
+    repo = UserRepository(db)
+    
+    update_data = user_data.model_dump(exclude_unset=True)
+    
+    # No permitir cambiar is_admin o is_active a través de este endpoint
+    update_data.pop("is_admin", None)
+    update_data.pop("is_active", None)
+    
+    if "password" in update_data:
+        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
+        
+    updated_user = await repo.update(current_user.id, update_data, tenant_id=current_user.tenant_id)
+    await db.commit()
+    await db.refresh(updated_user)
+    
+    return updated_user
+
+@router.post("/me/avatar", response_model=UserOut)
+async def upload_current_user_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Sube una foto de perfil para el usuario actual"""
+    # Validar tipo de archivo
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+    
+    # Crear directorio si no existe
+    os.makedirs("static/avatars", exist_ok=True)
+    
+    # Nombre de archivo único: id_nombre.ext
+    ext = os.path.splitext(file.filename)[1]
+    if not ext:
+        ext = ".png" # Fallback
+        
+    filename = f"{current_user.id}_avatar{ext}"
+    file_path = os.path.join("static/avatars", filename)
+    
+    # Guardar archivo
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # URL relativa para el frontend
+    avatar_url = f"/static/avatars/{filename}"
+    
+    # Actualizar usuario en DB
+    repo = UserRepository(db)
+    updated_user = await repo.update(current_user.id, {"avatar_url": avatar_url}, tenant_id=current_user.tenant_id)
+    await db.commit()
+    await db.refresh(updated_user)
+    
+    return updated_user
+
+@router.get("", response_model=PaginatedResponse[UserOut])
 async def list_users(
+    pagination: PaginationParams = Depends(),
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista todos los usuarios del tenant"""
+    """Lista todos los usuarios del tenant con paginación"""
     repo = UserRepository(db)
-    users = await repo.get_all(tenant_id=tenant_id)
-    return users
+    items, total = await repo.get_paginated(pagination, tenant_id=tenant_id)
+    
+    metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
+    return PaginatedResponse(items=items, metadata=metadata)
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(

@@ -22,8 +22,7 @@ router = APIRouter()
 
 @router.get("", response_model=PaginatedResponse[InventoryMovementOut])
 async def list_movements(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    pagination: PaginationParams = Depends(),
     product_id: Optional[int] = Query(None, description="Filtrar por producto"),
     movement_type: Optional[MovementType] = Query(None, description="Filtrar por tipo de movimiento"),
     tenant_id: int = Depends(get_current_tenant),
@@ -32,7 +31,6 @@ async def list_movements(
     """Lista historial de movimientos de inventario"""
     try:
         repo = InventoryMovementRepository(db)
-        pagination = PaginationParams(page=page, page_size=page_size)
         
         if product_id:
             items, total = await repo.get_by_product(product_id, tenant_id, pagination)
@@ -41,7 +39,7 @@ async def list_movements(
         else:
             items, total = await repo.get_paginated(pagination, tenant_id)
             
-        metadata = create_pagination_metadata(page, page_size, total)
+        metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
         return PaginatedResponse(items=items, metadata=metadata)
         
     except Exception as e:

@@ -30,7 +30,13 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            import json
+            try:
+                # Intentar parsear como JSON (para formato ["http..."])
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # Fallback a separado por comas
+                return [origin.strip() for origin in v.split(",")]
         return v
     
     # Redis
@@ -45,8 +51,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     
     # Pagination
-    default_page_size: int = 20
-    max_page_size: int = 100
+    default_page_size: int = 10
+    max_page_size: int = 500
     
     # Stock Alerts
     low_stock_threshold_percentage: float = 0.2  # 20% del stock mínimo

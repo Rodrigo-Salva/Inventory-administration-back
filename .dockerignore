@@ -53,7 +53,13 @@ docs/_build/
 # Alembic
 alembic/versions/*.pyc
 
+# Local storage
+static/avatars/*
+!static/avatars/.gitkeep
+
 # Temporary files
 *.tmp
 *.bak
 *.swp
+.DS_Store
+Thumbs.db

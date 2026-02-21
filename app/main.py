@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+import os
 from contextlib import asynccontextmanager
 from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports
 from .core.config import settings
@@ -38,6 +40,27 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
         logger.info("Sincronización de tenants completada")
+        
+        logger.info("Sincronizando esquema de categorías...")
+        try:
+            # Nota: IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE es postgres specific
+            # Si ya existe ignorará el error
+            await conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
+        except Exception:
+            pass
+        logger.info("Sincronización de categorías completada")
+
+        logger.info("Sincronizando esquema de usuarios...")
+        user_columns = [
+            ("first_name", "VARCHAR(100)"), ("last_name", "VARCHAR(100)"), ("phone", "VARCHAR(20)"),
+            ("avatar_url", "VARCHAR(255)")
+        ]
+        for col_name, col_type in user_columns:
+            try:
+                await conn.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            except Exception:
+                pass
+        logger.info("Sincronización de usuarios completada")
 
     await cache_manager.connect()
     logger.info("Aplicación iniciada correctamente")
@@ -58,6 +81,7 @@ app = FastAPI(
 )
 
 # CORS
+logger.info(f"Habilitando CORS para origenes: {settings.cors_origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -98,6 +122,10 @@ app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventor
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
+
+# Servir archivos estáticos
+os.makedirs("static/avatars", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/")

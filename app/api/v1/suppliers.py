@@ -30,17 +30,13 @@ async def list_suppliers(
     """Lista todos los proveedores con paginación y filtros"""
     repo = SupplierRepository(db)
     
-    # Si hay búsqueda, usar método de búsqueda
-    if search:
-        suppliers, total = await repo.search(search, tenant_id, pagination)
-    else:
-        # Construir filtros
-        filters = {}
-        if is_active is not None:
-            filters["is_active"] = is_active
-        
-        # Obtener proveedores
-        suppliers, total = await repo.get_paginated(pagination, tenant_id, filters)
+    # Obtener proveedores con filtros combinados
+    suppliers, total = await repo.get_filtered(
+        tenant_id=tenant_id,
+        search=search,
+        is_active=is_active,
+        pagination=pagination
+    )
     
     return PaginatedResponse(
         items=suppliers,

@@ -20,46 +20,35 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedResponse[ProductOut])
+@router.get("", response_model=PaginatedResponse[ProductWithRelations])
 async def list_products(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    pagination: PaginationParams = Depends(),
     search: str = Query(None, description="Buscar por nombre, SKU o código de barras"),
     category_id: int = Query(None, description="Filtrar por categoría"),
+    supplier_id: int = Query(None, description="Filtrar por proveedor"),
     is_active: bool = Query(None, description="Filtrar por estado activo"),
     low_stock: bool = Query(False, description="Solo productos con stock bajo"),
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista productos con paginación y filtros"""
+    """Lista productos con paginación y filtros combinados"""
     try:
         repo = ProductRepository(db)
-        pagination = PaginationParams(page=page, page_size=page_size)
         
-        if low_stock:
-            products = await repo.get_low_stock_products(tenant_id)
-            total = len(products)
-            # Aplicar paginación manual
-            start = pagination.offset
-            end = start + pagination.limit
-            items = products[start:end]
-        elif search:
-            items, total = await repo.search(search, tenant_id, pagination)
-        elif category_id:
-            items, total = await repo.get_by_category(category_id, tenant_id, pagination)
-        else:
-            filters = {}
-            if is_active is not None:
-                filters["is_active"] = 1 if is_active else 0
-            items, total = await repo.get_paginated(pagination, tenant_id, filters)
+        items, total = await repo.get_filtered(
+            tenant_id=tenant_id,
+            search=search,
+            category_id=category_id,
+            supplier_id=supplier_id,
+            is_active=is_active,
+            low_stock=low_stock,
+            pagination=pagination
+        )
         
-        metadata = create_pagination_metadata(page, page_size, total)
-        
+        metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
         return PaginatedResponse(items=items, metadata=metadata)
     except Exception as e:
-        import traceback
-        print(f"❌ ERROR EN LIST_PRODUCTS: {e}")
-        traceback.print_exc()
+        logger.error(f"Error en list_products: {str(e)}", exc_info=True)
         raise e
 
 
@@ -86,7 +75,7 @@ async def create_product(
     # Crear producto
     product_dict = product_data.model_dump()
     product_dict["tenant_id"] = tenant_id
-    product_dict["is_active"] = 1 if product_data.is_active else 0
+    product_dict["is_active"] = True if product_data.is_active else False
     
     product = await repo.create(product_dict)
     await db.commit()
@@ -136,9 +125,6 @@ async def update_product(
     
     # Actualizar
     update_dict = product_data.model_dump(exclude_unset=True)
-    if "is_active" in update_dict:
-        update_dict["is_active"] = 1 if update_dict["is_active"] else 0
-    
     updated_product = await repo.update(product_id, update_dict, tenant_id)
     await db.commit()
     
@@ -204,7 +190,7 @@ async def bulk_create_products(
             # Crear producto
             product_dict = product_data.model_dump()
             product_dict["tenant_id"] = tenant_id
-            product_dict["is_active"] = 1 if product_data.is_active else 0
+            product_dict["is_active"] = True if product_data.is_active else False
             
             await repo.create(product_dict)
             created_count += 1

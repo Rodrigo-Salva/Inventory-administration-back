@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -73,7 +74,7 @@ class ProductRepository(BaseRepository[Product]):
             and_(
                 Product.tenant_id == tenant_id,
                 Product.is_deleted == False,
-                Product.is_active == 1,
+                Product.is_active == True,
                 Product.stock <= Product.min_stock
             )
         ).order_by(Product.stock.asc())
@@ -87,7 +88,7 @@ class ProductRepository(BaseRepository[Product]):
             and_(
                 Product.tenant_id == tenant_id,
                 Product.is_deleted == False,
-                Product.is_active == 1,
+                Product.is_active == True,
                 Product.stock <= 0
             )
         )
@@ -144,7 +145,7 @@ class ProductRepository(BaseRepository[Product]):
         query = select(Product).where(
             and_(
                 Product.tenant_id == tenant_id,
-                Product.is_active == 1,
+                Product.is_active == True,
                 Product.is_deleted == False
             )
         ).options(
@@ -160,6 +161,63 @@ class ProductRepository(BaseRepository[Product]):
         items = result.scalars().all()
         return items, len(items)
     
+    async def get_filtered(
+        self,
+        tenant_id: int,
+        search: Optional[str] = None,
+        category_id: Optional[int] = None,
+        supplier_id: Optional[int] = None,
+        is_active: Optional[bool] = None,
+        low_stock: bool = False,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        pagination: Optional[PaginationParams] = None
+    ) -> tuple[List[Product], int]:
+        """Obtiene productos aplicando múltiples filtros concurrentes"""
+        conditions = [
+            Product.tenant_id == tenant_id,
+            Product.is_deleted == False
+        ]
+        
+        if search:
+            conditions.append(or_(
+                Product.name.ilike(f"%{search}%"),
+                Product.sku.ilike(f"%{search}%"),
+                Product.barcode.ilike(f"%{search}%")
+            ))
+            
+        if category_id is not None:
+            conditions.append(Product.category_id == category_id)
+    
+        if supplier_id is not None:
+            conditions.append(Product.supplier_id == supplier_id)
+
+        if is_active is not None:
+            conditions.append(Product.is_active == is_active)
+            
+        if low_stock:
+            conditions.append(Product.stock <= Product.min_stock)
+
+        if start_date:
+            conditions.append(Product.created_at >= start_date)
+            
+        if end_date:
+            conditions.append(Product.created_at <= end_date)
+            
+        query = select(Product).where(and_(*conditions)).options(
+            selectinload(Product.category),
+            selectinload(Product.supplier)
+        ).order_by(Product.name.asc())
+        
+        if pagination:
+            from ..core.pagination import paginate
+            return await paginate(self.db, query, pagination, Product)
+            
+        result = await self.db.execute(query)
+        items = result.scalars().all()
+        return items, len(items)
+
+
     async def get_all_with_relations(
         self,
         tenant_id: int,

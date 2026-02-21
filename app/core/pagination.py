@@ -63,13 +63,7 @@ async def paginate(
         Tupla con (items, total_count)
     """
     # Obtener total de items
-    if model_class:
-        count_query = select(func.count()).select_from(model_class)
-        # Copiar filtros del query original si existen
-        if hasattr(query, 'whereclause') and query.whereclause is not None:
-            count_query = count_query.where(query.whereclause)
-    else:
-        count_query = select(func.count()).select_from(query.subquery())
+    count_query = select(func.count()).select_from(query.order_by(None).subquery())
     
     total_result = await db.execute(count_query)
     total_count = total_result.scalar() or 0

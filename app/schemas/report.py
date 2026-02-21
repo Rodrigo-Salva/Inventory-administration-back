@@ -25,5 +25,8 @@ class InventoryReport(BaseModel):
     recent_movements: List[Dict[str, Any]]
     low_stock_products: List[Dict[str, Any]] = []
     category_distribution: List[CategoryValue] = []
+    supplier_distribution: List[CategoryValue] = []
+    user_activity: List[CategoryValue] = []
+    top_moving_products: List[CategoryValue] = []
 
     model_config = ConfigDict(from_attributes=True)
