@@ -15,6 +15,9 @@ from ...schemas.product import (
 from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
 from ...core.exceptions import ProductNotFoundException, DuplicateResourceException
 from ...core.logging_config import get_logger
+from ...services.label_generator import LabelGenerator
+from fastapi.responses import StreamingResponse
+from datetime import datetime
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -205,4 +208,32 @@ async def bulk_create_products(
         created=created_count,
         skipped=skipped_count,
         errors=errors
+    )
+
+
+@router.get("/{product_id}/labels")
+async def get_product_labels(
+    product_id: int,
+    quantity: int = Query(12, ge=1, le=100),
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Genera etiquetas PDF para un producto específico"""
+    repo = ProductRepository(db)
+    product = await repo.get_by_id(product_id, tenant_id)
+    
+    if not product:
+        raise ProductNotFoundException(product_id)
+    
+    # Create a list with the same product repeated 'quantity' times
+    products_list = [product for _ in range(quantity)]
+    
+    pdf_buffer = LabelGenerator.generate_pdf(products_list)
+    
+    filename = f"Etiquetas_{product.sku}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )

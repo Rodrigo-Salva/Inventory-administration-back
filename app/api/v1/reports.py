@@ -28,7 +28,16 @@ async def get_dashboard_data(
     repo = ReportRepository(db)
     
     stats = await repo.get_dashboard_stats(tenant_id, start_date=start_date, end_date=end_date)
+    sales_stats = await repo.get_sales_stats(tenant_id, start_date=start_date, end_date=end_date)
+    stats.update({
+        "sales_count": sales_stats["sales_count"],
+        "total_revenue": sales_stats["total_revenue"]
+    })
+
     trends = await repo.get_movement_trends(tenant_id, start_date=start_date, end_date=end_date)
+    sales_trends = await repo.get_sales_trends(tenant_id)
+    top_selling = await repo.get_top_selling_products(tenant_id)
+    
     recent = await repo.get_recent_movements(tenant_id)
     low_stock = await repo.get_low_stock_products(tenant_id)
     cat_distribution = await repo.get_category_distribution(tenant_id)
@@ -39,6 +48,8 @@ async def get_dashboard_data(
     return {
         "stats": stats,
         "trends": trends,
+        "sales_trends": sales_trends,
+        "top_selling_products": top_selling,
         "recent_movements": recent,
         "low_stock_products": low_stock,
         "category_distribution": cat_distribution,
@@ -409,3 +420,165 @@ async def export_movements_excel(
     wb.save(excel_file)
     excel_file.seek(0)
     return StreamingResponse(excel_file, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=Kardex_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+@router.get("/sales-excel")
+async def export_sales_excel(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    status: Optional[str] = Query(None),
+    payment_method: Optional[str] = Query(None),
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Genera un reporte Excel profesional de ventas"""
+    from ...repositories.tenant_repo import TenantRepository
+    repo = ReportRepository(db)
+    t_repo = TenantRepository(db)
+    
+    sales = await repo.get_filtered_sales(
+        tenant_id=tenant_id,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        payment_method=payment_method
+    )
+    tenant = await t_repo.get_by_id(tenant_id)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ventas"
+    
+    title_font = Font(name='Arial', size=16, bold=True, color="1E40AF")
+    header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
+
+    ws.merge_cells('A1:G1')
+    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    ws['A1'] = f"REPORTE DE VENTAS - {tenant_name}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    ws.merge_cells('A2:G2')
+    date_range_str = f"Rango: {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}" if start_date and end_date else "Historial Completo"
+    ws['A2'] = f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {date_range_str}"
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal="center")
+
+    headers = ["ID", "Fecha/Hora", "Método", "Vendedor", "Estado", "Items", "Total"]
+    ws.append([])
+    ws.append(headers)
+    for cell in ws[4]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    for idx, s in enumerate(sales, start=5):
+        items_summary = ", ".join([f"{item.product.name} (x{item.quantity})" for item in s.items if item.product])
+        row = [
+            s.id, 
+            s.created_at.strftime('%d/%m/%Y %H:%M'), 
+            s.payment_method.upper(), 
+            s.user.email.split('@')[0] if s.user else "N/A",
+            s.status.upper(),
+            items_summary,
+            float(s.total_amount)
+        ]
+        ws.append(row)
+        for cell in ws[idx]: 
+            cell.border = thin_border
+            if cell.column == 7: cell.number_format = '"$"#,##0.00'
+
+    for col in ws.columns: ws.column_dimensions[get_column_letter(col[0].column)].width = 20
+    ws.column_dimensions['F'].width = 50 # Items summary wider
+
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    return StreamingResponse(
+        excel_file, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        headers={"Content-Disposition": f"attachment; filename=Ventas_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+@router.get("/sales-pdf")
+async def export_sales_pdf(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    status: Optional[str] = Query(None),
+    payment_method: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Genera un reporte PDF resumen de ventas"""
+    from ...repositories.tenant_repo import TenantRepository
+    from ...services.report_generator import ReportGenerator
+    # Usamos el repo de reportes para obtener las ventas filtradas
+    repo = ReportRepository(db)
+    t_repo = TenantRepository(db)
+    
+    # Nota: He actualizado el repo de reportes para soportar 'search' en la consulta si es necesario, 
+    # pero para el reporte PDF usaremos una lógica similar al excel.
+    # Primero obtenemos las ventas.
+    from ...repositories.sale_repo import SaleRepository
+    s_repo = SaleRepository(db)
+    
+    # Obtenemos todas las ventas filtradas (sin paginación para el reporte completo)
+    # Reutilizamos la lógica del repo de ventas pero sin offset/limit
+    sales, _ = await s_repo.get_sales_paginated(
+        tenant_id=tenant_id,
+        page=1,
+        size=500, # Un límite razonable para el PDF
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        payment_method=payment_method,
+        search=search
+    )
+    
+    tenant = await t_repo.get_by_id(tenant_id)
+    tenant_name = tenant.name if tenant else "Mi Negocio"
+    
+    filters = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "status": status,
+        "payment_method": payment_method,
+        "search": search
+    }
+    
+    pdf_buffer = ReportGenerator.generate_sales_summary_pdf(sales, tenant_name, filters)
+    
+    filename = f"Reporte_Ventas_{datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.get("/sales-history-stats")
+async def get_sales_history_stats(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    status: Optional[str] = Query(None),
+    payment_method: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    seller_id: Optional[int] = Query(None),
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene KPIs y tendencias para la página de historial de ventas"""
+    repo = ReportRepository(db)
+    return await repo.get_sales_history_stats(
+        tenant_id=tenant_id,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        payment_method=payment_method,
+        search=search,
+        seller_id=seller_id
+    )

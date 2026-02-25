@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
@@ -49,6 +49,21 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
         logger.info("Sincronización de categorías completada")
+
+        logger.info("Creando tablas de ventas si no existen...")
+        try:
+            # Creación de tablas por si no existen (Alembic sería ideal, pero usamos esto por ahora)
+            from .models.base import Base
+            from .models.sale import Sale, SaleItem
+            await conn.run_sync(Base.metadata.create_all, tables=[Sale.__table__, SaleItem.__table__])
+            # Asegurar que existe la columna status si no se creó
+            try:
+                await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'"))
+            except Exception: pass
+            logger.info("Tablas de ventas verificadas/creadas")
+        except Exception as e:
+            logger.error(f"Error creando tablas de ventas: {e}")
+        logger.info("Gestión de esquema de ventas completada")
 
         logger.info("Sincronizando esquema de usuarios...")
         user_columns = [
@@ -122,6 +137,7 @@ app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventor
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
+app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)

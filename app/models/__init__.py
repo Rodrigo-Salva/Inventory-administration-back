@@ -8,6 +8,7 @@ from .category import Category
 from .supplier import Supplier
 from .inventory_movement import InventoryMovement, MovementType
 from .stock_alert import StockAlert, AlertType, AlertStatus
+from .sale import Sale, SaleItem, PaymentMethod
 from .audit_log import AuditLog
 
 __all__ = [
@@ -25,4 +26,7 @@ __all__ = [
     "AlertType",
     "AlertStatus",
     "AuditLog",
+    "Sale",
+    "SaleItem",
+    "PaymentMethod",
 ]
