@@ -35,6 +35,7 @@ async def update_my_tenant(
         tenant_data.model_dump(exclude_unset=True)
     )
     await db.commit()
+    await db.refresh(updated_tenant)
     
     logger.info(f"Tenant actualizado: {admin.tenant_id}")
     return updated_tenant

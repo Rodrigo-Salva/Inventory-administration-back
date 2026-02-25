@@ -155,6 +155,7 @@ async def update_user(
         
     updated_user = await repo.update(user_id, update_data, tenant_id=current_admin.tenant_id)
     await db.commit()
+    await db.refresh(updated_user)
     
     logger.info(f"Usuario actualizado: {user_id}")
     return updated_user

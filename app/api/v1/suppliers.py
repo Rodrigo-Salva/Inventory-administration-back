@@ -142,7 +142,7 @@ async def update_supplier(
     
     # Actualizar
     update_data = supplier_update.model_dump(exclude_unset=True)
-    updated_supplier = await repo.update(supplier_id, tenant_id, update_data)
+    updated_supplier = await repo.update(supplier_id, update_data, tenant_id)
     await db.commit()
     await db.refresh(updated_supplier)
     
@@ -190,7 +190,7 @@ async def toggle_supplier_active(
     
     # Cambiar estado
     new_state = not supplier.is_active
-    updated_supplier = await repo.update(supplier_id, tenant_id, {"is_active": new_state})
+    updated_supplier = await repo.update(supplier_id, {"is_active": new_state}, tenant_id)
     await db.commit()
     await db.refresh(updated_supplier)
     

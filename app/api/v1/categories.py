@@ -209,7 +209,7 @@ async def update_category(
     
     # Actualizar
     update_data = category_update.model_dump(exclude_unset=True)
-    updated_category = await repo.update(category_id, tenant_id, update_data)
+    updated_category = await repo.update(category_id, update_data, tenant_id)
     await db.commit()
     await db.refresh(updated_category)
     

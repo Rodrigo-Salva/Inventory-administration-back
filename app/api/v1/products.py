@@ -120,6 +120,12 @@ async def update_product(
     if not product:
         raise ProductNotFoundException(product_id)
     
+    # Verificar SKU único si se está actualizando
+    if product_data.sku and product_data.sku != product.sku:
+        existing_sku = await repo.get_by_sku(product_data.sku, tenant_id)
+        if existing_sku and existing_sku.id != product_id:
+            raise DuplicateResourceException("Producto", "SKU", product_data.sku)
+
     # Verificar barcode único si se está actualizando
     if product_data.barcode and product_data.barcode != product.barcode:
         existing_barcode = await repo.get_by_barcode(product_data.barcode, tenant_id)
@@ -130,9 +136,9 @@ async def update_product(
     update_dict = product_data.model_dump(exclude_unset=True)
     updated_product = await repo.update(product_id, update_dict, tenant_id)
     await db.commit()
+    await db.refresh(updated_product)
     
     logger.info(f"Producto actualizado: {product_id}")
-    
     return updated_product
 
 
