@@ -349,6 +349,16 @@ class ReportRepository:
         ).join(Sale, Sale.id == SaleItem.sale_id
         ).where(and_(*filters)).group_by(Product.name).order_by(desc("occurrences")).limit(1)
 
+        # 7. Distribución por Categoría
+        category_q = select(
+            Category.name,
+            func.sum(SaleItem.subtotal).label("value")
+        ).join(SaleItem, Product.id == SaleItem.product_id
+        ).join(Product, Product.id == SaleItem.product_id
+        ).join(Category, Category.id == Product.category_id
+        ).join(Sale, Sale.id == SaleItem.sale_id
+        ).where(and_(*filters)).group_by(Category.name)
+
 
         # Ejecutar todas
         sales_res = await self.db.execute(sales_q)
@@ -356,6 +366,7 @@ class ReportRepository:
         trend_res = await self.db.execute(trend_q)
         payment_res = await self.db.execute(payment_q)
         top_res = await self.db.execute(top_q)
+        category_res = await self.db.execute(category_q)
 
         s_stats = sales_res.one()
         i_stats = items_res.one()
@@ -387,6 +398,7 @@ class ReportRepository:
             "top_product": top_row.name if top_row else "N/A",
             "trends": [{"date": str(row.day), "revenue": float(row.revenue or 0), "count": row.count} for row in trend_res.all()],
             "payment_distribution": [{"name": row.payment_method, "value": float(row.value or 0)} for row in payment_res.all()],
+            "category_distribution": [{"name": row.name, "value": float(row.value or 0)} for row in category_res.all()],
             "sellers": sellers_list,
             "low_stock_items": low_list
         }
