@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -55,6 +55,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - avatar_data:/app/static/avatars
+      - ./logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -62,15 +65,6 @@ services:
         condition: service_healthy
     networks:
       - inventory_network
-    command: >
-      sh -c "
-        echo 'Waiting for database...' &&
-        sleep 5 &&
-        echo 'Running migrations...' &&
-        alembic upgrade head &&
-        echo 'Starting application...' &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000
-      "
 
   # PgAdmin (Optional - for development)
   pgadmin:
@@ -80,7 +74,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@inventory.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     depends_on:
@@ -94,6 +88,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  avatar_data:
     driver: local
 
 networks:

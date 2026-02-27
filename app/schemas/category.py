@@ -10,6 +10,7 @@ class CategoryBase(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="Descripción de la categoría")
     parent_id: Optional[int] = Field(None, description="ID de la categoría padre")
     display_order: int = Field(default=0, description="Orden de visualización")
+    is_active: bool = Field(default=True, description="Indica si la categoría está activa")
     
     @field_validator('name')
     @classmethod
@@ -31,6 +32,7 @@ class CategoryUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     parent_id: Optional[int] = None
     display_order: Optional[int] = None
+    is_active: Optional[bool] = None
     
     @field_validator('name')
     @classmethod
@@ -47,10 +49,6 @@ class CategoryOut(CategoryBase):
     created_at: datetime
     updated_at: datetime
     is_deleted: bool = False
-    
-    # Propiedades calculadas (se agregarán en el endpoint si es necesario)
-    full_path: Optional[str] = None
-    level: Optional[int] = None
     
     model_config = {"from_attributes": True}
 
@@ -70,6 +68,7 @@ class CategoryTree(BaseModel):
     description: Optional[str] = None
     parent_id: Optional[int] = None
     display_order: int
+    is_active: bool = True
     children: List['CategoryTree'] = []
     
     model_config = {"from_attributes": True}

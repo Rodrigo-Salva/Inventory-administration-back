@@ -135,3 +135,42 @@ class InventoryMovementRepository(BaseRepository[InventoryMovement]):
         
         result = await self.db.execute(query)
         return result.scalar() or 0.0
+
+    async def get_filtered(
+        self,
+        tenant_id: int,
+        product_id: Optional[int] = None,
+        movement_type: Optional[MovementType] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        pagination: Optional[PaginationParams] = None
+    ) -> tuple[List[InventoryMovement], int]:
+        """Obtiene movimientos aplicando múltiples filtros para reportes"""
+        conditions = [
+            InventoryMovement.tenant_id == tenant_id
+        ]
+        
+        if product_id:
+            conditions.append(InventoryMovement.product_id == product_id)
+            
+        if movement_type:
+            conditions.append(InventoryMovement.movement_type == movement_type)
+
+        if start_date:
+            conditions.append(InventoryMovement.created_at >= start_date)
+            
+        if end_date:
+            conditions.append(InventoryMovement.created_at <= end_date)
+            
+        query = select(InventoryMovement).where(and_(*conditions)).options(
+            selectinload(InventoryMovement.product),
+            selectinload(InventoryMovement.user)
+        ).order_by(InventoryMovement.created_at.desc())
+        
+        if pagination:
+            from ..core.pagination import paginate
+            return await paginate(self.db, query, pagination, InventoryMovement)
+            
+        result = await self.db.execute(query)
+        items = result.scalars().all()
+        return items, len(items)

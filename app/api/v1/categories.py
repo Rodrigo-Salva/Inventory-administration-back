@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import get_db
-from ...dependencies import get_current_tenant
+from ...dependencies import get_current_tenant, require_role
+from ...models.user import User, UserRole
 from ...repositories import CategoryRepository
 from ...schemas.category import (
     CategoryCreate,
@@ -23,49 +24,38 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[CategoryOut])
 async def list_categories(
     pagination: PaginationParams = Depends(),
-    parent_id: Optional[int] = Query(None, description="Filtrar por categoría padre"),
     search: Optional[str] = Query(None, description="Buscar por nombre o código"),
+    is_active: Optional[bool] = Query(None, description="Filtrar por estado activo"),
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
     """Lista todas las categorías con paginación y filtros"""
-    repo = CategoryRepository(db)
-    
-    # Construir filtros
-    filters = {}
-    if parent_id is not None:
-        filters["parent_id"] = parent_id
-    
-    # Obtener categorías
-    categories, total = await repo.get_paginated(pagination, tenant_id, filters)
-    
-    # Si hay búsqueda, filtrar en memoria (o mejorar el repo para búsqueda)
-    if search:
-        search_lower = search.lower()
-        categories = [
-            c for c in categories 
-            if search_lower in c.name.lower() or (c.code and search_lower in c.code.lower())
-        ]
-        total = len(categories)
-    
-    return PaginatedResponse(
-        items=categories,
-        metadata=create_pagination_metadata(
-            total_items=total,
-            page=pagination.page,
-            page_size=pagination.page_size
+    try:
+        repo = CategoryRepository(db)
+        
+        items, total = await repo.get_filtered(
+            tenant_id=tenant_id,
+            search=search,
+            is_active=is_active,
+            pagination=pagination
         )
-    )
+        metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
+        #metadata = create_pagination_metadata(total, pagination.page, pagination.page_size)
+        return PaginatedResponse(items=items, metadata=metadata)
+    except Exception as e:
+        logger.error(f"Error en list_categories: {str(e)}", exc_info=True)
+        raise e
 
 
 @router.post("/", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category: CategoryCreate,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Crea una nueva categoría"""
+    """Crea una nueva categoría (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar si el código ya existe
     if category.code:
@@ -104,22 +94,26 @@ async def get_root_categories(
 
 @router.get("/tree", response_model=List[CategoryTree])
 async def get_category_tree(
+    is_active: Optional[bool] = Query(None, description="Filtrar por estado activo"),
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Obtiene el árbol jerárquico completo de categorías"""
+    """Obtiene el árbol jerárquico completo de categorías con filtro de estado"""
     repo = CategoryRepository(db)
     
-    # Obtener todas las categorías
-    all_categories = await repo.get_hierarchy(tenant_id)
+    # Obtener categorías filtradas por estado
+    all_categories, _ = await repo.get_filtered(
+        tenant_id=tenant_id,
+        is_active=is_active
+    )
     
     # Construir árbol
     category_dict = {cat.id: cat for cat in all_categories}
     tree = []
     
     for category in all_categories:
-        if category.parent_id is None:
-            # Es una categoría raíz
+        if category.parent_id is None or category.parent_id not in category_dict:
+            # Es una raíz o su padre fue filtrado
             tree.append(_build_tree_node(category, category_dict))
     
     return tree
@@ -183,11 +177,12 @@ async def get_category_children(
 async def update_category(
     category_id: int,
     category_update: CategoryUpdate,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Actualiza una categoría"""
+    """Actualiza una categoría (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que existe
     category = await repo.get_by_id(category_id, tenant_id)
@@ -217,7 +212,7 @@ async def update_category(
     
     # Actualizar
     update_data = category_update.model_dump(exclude_unset=True)
-    updated_category = await repo.update(category_id, tenant_id, update_data)
+    updated_category = await repo.update(category_id, update_data, tenant_id)
     await db.commit()
     await db.refresh(updated_category)
     
@@ -228,11 +223,12 @@ async def update_category(
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: int,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Elimina una categoría (soft delete)"""
+    """Elimina una categoría (soft delete) (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que existe
     category = await repo.get_by_id(category_id, tenant_id)

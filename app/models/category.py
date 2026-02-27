@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, ForeignKey, Index, Boolean
 from sqlalchemy.orm import relationship
 from .base import TimestampMixin, SoftDeleteMixin
 from .base import Base
@@ -19,6 +19,9 @@ class Category(Base, TimestampMixin, SoftDeleteMixin):
     # Orden de visualización
     display_order = Column(Integer, default=0)
     
+    # Estado
+    is_active = Column(Boolean, default=True, nullable=False)
+    
     # Relaciones
     tenant = relationship("Tenant", back_populates="categories")
     parent = relationship("Category", remote_side=[id], back_populates="children")
@@ -29,6 +32,7 @@ class Category(Base, TimestampMixin, SoftDeleteMixin):
     __table_args__ = (
         Index('idx_categories_tenant_parent', 'tenant_id', 'parent_id'),
         Index('idx_categories_tenant_name', 'tenant_id', 'name'),
+        Index('idx_categories_tenant_active', 'tenant_id', 'is_active'),
     )
     
     @property

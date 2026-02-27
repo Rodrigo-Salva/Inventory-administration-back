@@ -30,17 +30,13 @@ async def list_suppliers(
     """Lista todos los proveedores con paginación y filtros"""
     repo = SupplierRepository(db)
     
-    # Si hay búsqueda, usar método de búsqueda
-    if search:
-        suppliers, total = await repo.search(search, tenant_id, pagination)
-    else:
-        # Construir filtros
-        filters = {}
-        if is_active is not None:
-            filters["is_active"] = is_active
-        
-        # Obtener proveedores
-        suppliers, total = await repo.get_paginated(pagination, tenant_id, filters)
+    # Obtener proveedores con filtros combinados
+    suppliers, total = await repo.get_filtered(
+        tenant_id=tenant_id,
+        search=search,
+        is_active=is_active,
+        pagination=pagination
+    )
     
     return PaginatedResponse(
         items=suppliers,
@@ -146,7 +142,7 @@ async def update_supplier(
     
     # Actualizar
     update_data = supplier_update.model_dump(exclude_unset=True)
-    updated_supplier = await repo.update(supplier_id, tenant_id, update_data)
+    updated_supplier = await repo.update(supplier_id, update_data, tenant_id)
     await db.commit()
     await db.refresh(updated_supplier)
     
@@ -194,7 +190,7 @@ async def toggle_supplier_active(
     
     # Cambiar estado
     new_state = not supplier.is_active
-    updated_supplier = await repo.update(supplier_id, tenant_id, {"is_active": new_state})
+    updated_supplier = await repo.update(supplier_id, {"is_active": new_state}, tenant_id)
     await db.commit()
     await db.refresh(updated_supplier)
     
