@@ -352,11 +352,11 @@ class ReportRepository:
         # 7. Distribución por Categoría
         category_q = select(
             Category.name,
-            func.sum(SaleItem.subtotal).label("value")
-        ).join(SaleItem, Product.id == SaleItem.product_id
+            func.sum(func.coalesce(SaleItem.subtotal, 0)).label("value")
+        ).select_from(SaleItem
+        ).join(Sale, Sale.id == SaleItem.sale_id
         ).join(Product, Product.id == SaleItem.product_id
         ).join(Category, Category.id == Product.category_id
-        ).join(Sale, Sale.id == SaleItem.sale_id
         ).where(and_(*filters)).group_by(Category.name)
 
 

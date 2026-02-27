@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     environment: str = "development"  # development, staging, production
     debug: bool = True
+    api_v1_str: str = "/api/v1"
     
     # Database
     database_url: str

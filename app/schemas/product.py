@@ -30,6 +30,7 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     """Schema para actualizar un producto"""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
+    sku: Optional[str] = Field(None, min_length=1, max_length=50)
     barcode: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = None
     price: Optional[Decimal] = Field(None, gt=0)

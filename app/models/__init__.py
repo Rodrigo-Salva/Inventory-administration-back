@@ -10,6 +10,7 @@ from .inventory_movement import InventoryMovement, MovementType
 from .stock_alert import StockAlert, AlertType, AlertStatus
 from .sale import Sale, SaleItem, PaymentMethod
 from .audit_log import AuditLog
+from .role import Role, Permission
 
 __all__ = [
     "Base",
@@ -29,4 +30,6 @@ __all__ = [
     "Sale",
     "SaleItem",
     "PaymentMethod",
+    "Role",
+    "Permission",
 ]

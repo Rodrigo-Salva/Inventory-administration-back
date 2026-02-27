@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from ...models import get_db
-from ...dependencies import get_current_tenant, get_current_user
+from ...dependencies import get_current_tenant, get_current_user, require_role
 from ...schemas.sale import SaleCreate, SaleResponse, PaginatedSaleResponse
 from ...repositories.sale_repo import SaleRepository
 from ...repositories.tenant_repo import TenantRepository
-from ...models.user import User
+from ...models.user import User, UserRole
 from ...services.ticket_generator import TicketGenerator
 from fastapi.responses import StreamingResponse
 
@@ -31,10 +31,11 @@ async def create_sale(
         # Aquí podrías manejar excepciones específicas como InsufficientStockException
         raise HTTPException(status_code=400, detail=str(e))
 
+from ...core.pagination import PaginationParams, create_pagination_metadata
+
 @router.get("/", response_model=PaginatedSaleResponse)
 async def list_sales(
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=100),
+    pagination: PaginationParams = Depends(),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     status: Optional[str] = Query(None),
@@ -44,21 +45,21 @@ async def list_sales(
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista las ventas paginadas"""
+    """Lista las ventas paginadas con filtros estándar"""
     repo = SaleRepository(db)
     items, total = await repo.get_sales_paginated(
-        tenant_id, page, size, start_date, end_date, status, payment_method, search, seller_id
+        tenant_id=tenant_id,
+        pagination=pagination,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        payment_method=payment_method,
+        search=search,
+        seller_id=seller_id
     )
     
-    pages = (total + size - 1) // size
-    
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "size": size,
-        "pages": pages
-    }
+    metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
+    return PaginatedSaleResponse(items=items, metadata=metadata)
 
 @router.get("/{sale_id}", response_model=SaleResponse)
 async def get_sale(
@@ -102,13 +103,12 @@ async def get_sale_ticket(
 @router.post("/{sale_id}/annul", response_model=SaleResponse)
 async def annul_sale(
     sale_id: int,
-    tenant_id: int = Depends(get_current_tenant),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Anula una venta y revierte el stock"""
+    """Anula una venta y revierte el stock (Solo Admins/Managers)"""
     repo = SaleRepository(db)
-    sale = await repo.annul_sale(sale_id, tenant_id, current_user.id)
+    sale = await repo.annul_sale(sale_id, current_user.tenant_id, current_user.id)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
     return sale

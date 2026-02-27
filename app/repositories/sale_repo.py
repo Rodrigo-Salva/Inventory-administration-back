@@ -9,6 +9,7 @@ from ..core.exceptions import ProductNotFoundException, InsufficientStockExcepti
 from decimal import Decimal
 from datetime import datetime
 from typing import List, Optional
+from ..core.pagination import PaginationParams
 
 class SaleRepository(BaseRepository[Sale]):
     def __init__(self, db: AsyncSession):
@@ -140,17 +141,14 @@ class SaleRepository(BaseRepository[Sale]):
     async def get_sales_paginated(
         self, 
         tenant_id: int, 
-        page: int = 1, 
-        size: int = 10,
+        pagination: PaginationParams,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         status: Optional[str] = None,
         payment_method: Optional[str] = None,
         search: Optional[str] = None,
         seller_id: Optional[int] = None
-    ):
-        offset = (page - 1) * size
-        
+    ) -> tuple[List[Sale], int]:
         query = select(Sale).options(
             selectinload(Sale.items).selectinload(SaleItem.product),
             selectinload(Sale.user)
@@ -185,13 +183,6 @@ class SaleRepository(BaseRepository[Sale]):
 
         query = query.order_by(Sale.created_at.desc())
         
-        # Contar total
-        count_query = select(func.count()).select_from(query.subquery())
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar_one()
-        
-        # Obtener items
-        result = await self.db.execute(query.offset(offset).limit(size))
-        items = result.unique().scalars().all()
-        
-        return items, total
+        # Usar la utilidad paginate del sistema
+        from ..core.pagination import paginate
+        return await paginate(self.db, query, pagination, Sale)
