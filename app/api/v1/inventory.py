@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import get_db
-from ...dependencies import get_current_tenant
+from ...dependencies import get_current_tenant, get_current_user, require_role, require_permission
+from ...models.user import User, UserRole
 from ...services.inventory_service import InventoryService
 from ...schemas.product import (
     AddStockRequest,
@@ -49,19 +50,19 @@ async def list_movements(
         raise e
 
 
-@router.post("/add-stock", response_model=InventoryMovementOut, status_code=status.HTTP_201_CREATED)
+@router.post("/add-stock", response_model=InventoryMovementOut)
 async def add_stock(
     request: AddStockRequest,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("inventory:adjust")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Agrega stock a un producto"""
+    """Agrega stock a un producto (Solo Admins/Managers)"""
     service = InventoryService(db)
     
     movement = await service.add_stock(
         product_id=request.product_id,
         quantity=request.quantity,
-        tenant_id=tenant_id,
+        tenant_id=current_user.tenant_id,
         unit_cost=request.unit_cost,
         reference=request.reference,
         notes=request.notes
@@ -70,19 +71,19 @@ async def add_stock(
     return movement
 
 
-@router.post("/remove-stock", response_model=InventoryMovementOut, status_code=status.HTTP_201_CREATED)
+@router.post("/remove-stock", response_model=InventoryMovementOut)
 async def remove_stock(
     request: RemoveStockRequest,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("inventory:adjust")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Remueve stock de un producto"""
+    """Remueve stock de un producto (Solo Admins/Managers)"""
     service = InventoryService(db)
     
     movement = await service.remove_stock(
         product_id=request.product_id,
         quantity=request.quantity,
-        tenant_id=tenant_id,
+        tenant_id=current_user.tenant_id,
         reference=request.reference,
         notes=request.notes,
         allow_negative=request.allow_negative
@@ -91,19 +92,19 @@ async def remove_stock(
     return movement
 
 
-@router.post("/adjust-stock", response_model=InventoryMovementOut, status_code=status.HTTP_201_CREATED)
+@router.post("/adjust-stock", response_model=InventoryMovementOut)
 async def adjust_stock(
     request: AdjustStockRequest,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("inventory:adjust")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Ajusta el stock de un producto a un valor específico"""
+    """Ajusta el stock de un producto a un valor específico (Solo Admins/Managers)"""
     service = InventoryService(db)
     
     movement = await service.adjust_stock(
         product_id=request.product_id,
         new_stock=request.new_stock,
-        tenant_id=tenant_id,
+        tenant_id=current_user.tenant_id,
         reason=request.reason
     )
     

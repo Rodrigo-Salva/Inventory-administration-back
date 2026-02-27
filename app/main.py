@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
@@ -65,16 +65,87 @@ async def lifespan(app: FastAPI):
             logger.error(f"Error creando tablas de ventas: {e}")
         logger.info("Gestión de esquema de ventas completada")
 
-        logger.info("Sincronizando esquema de usuarios...")
-        user_columns = [
-            ("first_name", "VARCHAR(100)"), ("last_name", "VARCHAR(100)"), ("phone", "VARCHAR(20)"),
-            ("avatar_url", "VARCHAR(255)")
-        ]
-        for col_name, col_type in user_columns:
+        # 1. Crear tablas de Roles y Permisos (Separado para mayor compatibilidad)
+        try:
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS permissions (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    codename VARCHAR(100) UNIQUE NOT NULL,
+                    module VARCHAR(50) NOT NULL,
+                    description VARCHAR(255)
+                );
+            """))
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS roles (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER REFERENCES tenants(id),
+                    name VARCHAR(100) NOT NULL,
+                    description VARCHAR(255),
+                    is_system BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS role_permissions (
+                    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+                    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+                    PRIMARY KEY (role_id, permission_id)
+                );
+            """))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id)"))
+        except Exception as e:
+            logger.error(f"Error creando tablas de roles: {e}")
+            # Intentar solo la columna por si las tablas ya existían pero la columna no
             try:
-                await conn.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
-            except Exception:
-                pass
+                await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER"))
+            except: pass
+
+        # 2. Seed de Permisos fijos
+        permissions_seed = [
+            ("Ver Dashboard y Gráficos", "dashboard:view", "dashboard"),
+            ("Ver Productos", "products:view", "products"),
+            ("Crear Productos", "products:create", "products"),
+            ("Editar Productos", "products:edit", "products"),
+            ("Eliminar Productos", "products:delete", "products"),
+            ("Descargar Catálogo Excel/PDF", "products:download", "products"),
+            ("Ver Categorías", "categories:view", "categories"),
+            ("Crear Categorías", "categories:create", "categories"),
+            ("Editar Categorías", "categories:edit", "categories"),
+            ("Eliminar Categorías", "categories:delete", "categories"),
+            ("Ver Proveedores", "suppliers:view", "suppliers"),
+            ("Crear Proveedores", "suppliers:create", "suppliers"),
+            ("Editar Proveedores", "suppliers:edit", "suppliers"),
+            ("Eliminar Proveedores", "suppliers:delete", "suppliers"),
+            ("Ver Almacén/Stock", "inventory:view", "inventory"),
+            ("Realizar Ajustes de Stock", "inventory:adjust", "inventory"),
+            ("Ver Ventas (POS)", "sales:create", "sales"),
+            ("Ver Historial de Ventas", "sales:view", "sales_history"),
+            ("Anular Ventas del Historial", "sales:annul", "sales_history"),
+            ("Ver Usuarios", "users:view", "users"),
+            ("Crear Usuarios", "users:create", "users"),
+            ("Editar Usuarios", "users:edit", "users"),
+            ("Eliminar Usuarios", "users:delete", "users"),
+            ("Ver Roles y Permisos", "roles:manage", "roles_permissions"),
+            ("Configuración de Empresa", "settings:manage", "settings"),
+            ("Ver Reportes Financieros", "reports:view", "reports"),
+        ]
+        
+        for name, codename, module in permissions_seed:
+            try:
+                await conn.execute(text("""
+                    INSERT INTO permissions (name, codename, module) 
+                    VALUES (:name, :codename, :module) 
+                    ON CONFLICT (codename) DO UPDATE SET 
+                        module = EXCLUDED.module,
+                        name = EXCLUDED.name
+                """), {"name": name, "codename": codename, "module": module})
+            except Exception: pass
+
+        # 3. Gestión de Roles manual por el usuario
+        logger.info("Sistema de roles listo para configuración manual")
+            
         logger.info("Sincronización de usuarios completada")
 
     await cache_manager.connect()
@@ -136,7 +207,8 @@ app.include_router(suppliers.router, prefix="/api/v1/suppliers", tags=["supplier
 app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventory"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
-app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
+app.include_router(reports.router, prefix=f"{settings.api_v1_str}/reports", tags=["reports"])
+app.include_router(roles.router, prefix=f"{settings.api_v1_str}/roles")
 app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
 
 # Servir archivos estáticos

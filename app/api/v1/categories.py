@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import get_db
-from ...dependencies import get_current_tenant
+from ...dependencies import get_current_tenant, require_role
+from ...models.user import User, UserRole
 from ...repositories import CategoryRepository
 from ...schemas.category import (
     CategoryCreate,
@@ -49,11 +50,12 @@ async def list_categories(
 @router.post("/", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category: CategoryCreate,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Crea una nueva categoría"""
+    """Crea una nueva categoría (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar si el código ya existe
     if category.code:
@@ -175,11 +177,12 @@ async def get_category_children(
 async def update_category(
     category_id: int,
     category_update: CategoryUpdate,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Actualiza una categoría"""
+    """Actualiza una categoría (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que existe
     category = await repo.get_by_id(category_id, tenant_id)
@@ -220,11 +223,12 @@ async def update_category(
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: int,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Elimina una categoría (soft delete)"""
+    """Elimina una categoría (soft delete) (Solo Admins/Managers)"""
     repo = CategoryRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que existe
     category = await repo.get_by_id(category_id, tenant_id)

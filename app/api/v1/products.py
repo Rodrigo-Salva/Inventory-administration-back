@@ -2,7 +2,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import get_db
-from ...dependencies import get_current_tenant
+from ...dependencies import get_current_tenant, require_role, require_permission
+from ...models.user import User, UserRole
 from ...repositories import ProductRepository
 from ...schemas.product import (
     ProductCreate,
@@ -57,28 +58,29 @@ async def list_products(
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 async def create_product(
-    product_data: ProductCreate,
-    tenant_id: int = Depends(get_current_tenant),
+    product_in: ProductCreate,
+    current_user: User = Depends(require_permission("products:create")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Crea un nuevo producto"""
+    """Crea un nuevo producto (Solo Admins/Managers)"""
     repo = ProductRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar si el SKU ya existe
-    existing = await repo.get_by_sku(product_data.sku, tenant_id)
+    existing = await repo.get_by_sku(product_in.sku, tenant_id)
     if existing:
-        raise DuplicateResourceException("Producto", "SKU", product_data.sku)
+        raise DuplicateResourceException("Producto", "SKU", product_in.sku)
     
     # Verificar barcode si se proporciona
-    if product_data.barcode:
-        existing_barcode = await repo.get_by_barcode(product_data.barcode, tenant_id)
+    if product_in.barcode:
+        existing_barcode = await repo.get_by_barcode(product_in.barcode, tenant_id)
         if existing_barcode:
-            raise DuplicateResourceException("Producto", "código de barras", product_data.barcode)
+            raise DuplicateResourceException("Producto", "código de barras", product_in.barcode)
     
     # Crear producto
-    product_dict = product_data.model_dump()
+    product_dict = product_in.model_dump()
     product_dict["tenant_id"] = tenant_id
-    product_dict["is_active"] = True if product_data.is_active else False
+    product_dict["is_active"] = True if product_in.is_active else False
     
     product = await repo.create(product_dict)
     await db.commit()
@@ -108,12 +110,13 @@ async def get_product(
 @router.put("/{product_id}", response_model=ProductOut)
 async def update_product(
     product_id: int,
-    product_data: ProductUpdate,
-    tenant_id: int = Depends(get_current_tenant),
+    product_in: ProductUpdate,
+    current_user: User = Depends(require_permission("products:edit")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Actualiza un producto"""
+    """Actualiza un producto (Solo Admins/Managers)"""
     repo = ProductRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que el producto existe
     product = await repo.get_by_id(product_id, tenant_id)
@@ -145,11 +148,12 @@ async def update_product(
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(
     product_id: int,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("products:delete")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Elimina un producto (soft delete)"""
+    """Elimina un producto (soft delete) (Solo Admins/Managers)"""
     repo = ProductRepository(db)
+    tenant_id = current_user.tenant_id
     
     # Verificar que existe
     product = await repo.get_by_id(product_id, tenant_id)
@@ -179,11 +183,12 @@ async def get_low_stock_products(
 @router.post("/bulk", response_model=BulkImportResponse)
 async def bulk_create_products(
     import_data: BulkProductImport,
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("products:create")),
     db: AsyncSession = Depends(get_db)
 ):
-    """Importación masiva de productos"""
+    """Importación masiva de productos (Solo Admins/Managers)"""
     repo = ProductRepository(db)
+    tenant_id = current_user.tenant_id
     created_count = 0
     skipped_count = 0
     errors = []

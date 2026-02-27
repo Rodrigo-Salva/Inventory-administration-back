@@ -42,9 +42,8 @@ class SaleResponse(SaleBase):
     class Config:
         from_attributes = True
 
-class PaginatedSaleResponse(BaseModel):
-    items: List[SaleResponse]
-    total: int
-    page: int
-    size: int
-    pages: int
+from ..core.pagination import PaginatedResponse
+
+# Re-utilizamos PaginatedResponse como alias para mantener compatibilidad si es necesario
+# pero lo ideal es usar PaginatedResponse[SaleResponse] directamente en las rutas
+PaginatedSaleResponse = PaginatedResponse[SaleResponse]

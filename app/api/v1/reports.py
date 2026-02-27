@@ -9,7 +9,8 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.base import get_db
-from ...dependencies import get_current_tenant
+from ...dependencies import get_current_tenant, require_role
+from ...models.user import User, UserRole
 from ...repositories.report_repo import ReportRepository
 from ...schemas.report import InventoryReport
 from ...core.logging_config import get_logger
@@ -21,11 +22,12 @@ router = APIRouter()
 async def get_dashboard_data(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Obtiene todos los datos necesarios para el dashboard inicial con filtros de fecha"""
+    """Obtiene todos los datos necesarios para el dashboard inicial (Solo Admins/Managers)"""
     repo = ReportRepository(db)
+    tenant_id = current_user.tenant_id
     
     stats = await repo.get_dashboard_stats(tenant_id, start_date=start_date, end_date=end_date)
     sales_stats = await repo.get_sales_stats(tenant_id, start_date=start_date, end_date=end_date)
@@ -112,11 +114,12 @@ async def export_inventory_excel(
     is_active: Optional[bool] = Query(None),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Genera un reporte Excel profesional del inventario con filtros de fecha y más"""
+    """Genera un reporte Excel profesional del inventario (Solo Admins/Managers)"""
     from ...repositories.product_repo import ProductRepository
+    tenant_id = current_user.tenant_id
     from ...repositories.tenant_repo import TenantRepository
     repo = ProductRepository(db)
     t_repo = TenantRepository(db)
