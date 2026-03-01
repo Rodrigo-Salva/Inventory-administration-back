@@ -35,9 +35,18 @@ async def clean_database(engine, session: AsyncSession):
 
 
 async def create_tenant_and_user(session: AsyncSession):
-    """Crea el tenant y usuario demo"""
-    print("\n👤 Creando tenant y usuario...")
+    """Crea el tenant y usuario demo si no existen"""
+    print("\n👤 Verificando tenant y usuario...")
     
+    # Verificar si el usuario ya existe
+    from sqlalchemy import select
+    result = await session.execute(select(User).where(User.email == "admin@demo.com"))
+    existing_user = result.scalar_one_or_none()
+    
+    if existing_user:
+        print(f"✅ Usuario demo ya existe: {existing_user.email}")
+        return existing_user.tenant_id
+
     # Crear tenant
     tenant = Tenant(
         name="Demo Company",
@@ -72,6 +81,15 @@ async def create_categories(session: AsyncSession, tenant_id: int):
     # Primera pasada: crear categorías raíz
     for cat_data in CATEGORIES:
         if cat_data["parent_code"] is None:
+            # Verificar si ya existe
+            from sqlalchemy import select
+            res = await session.execute(select(Category).where(Category.code == cat_data["code"]))
+            if res.scalar_one_or_none():
+                category = res.scalar_one()
+                category_map[cat_data["code"]] = category
+                print(f"  - {cat_data['name']} (ya existe)")
+                continue
+
             category = Category(
                 tenant_id=tenant_id,
                 name=cat_data["name"],
@@ -87,6 +105,15 @@ async def create_categories(session: AsyncSession, tenant_id: int):
     # Segunda pasada: crear categorías con padre
     for cat_data in CATEGORIES:
         if cat_data["parent_code"] is not None:
+            # Verificar si ya existe
+            from sqlalchemy import select
+            res = await session.execute(select(Category).where(Category.code == cat_data["code"]))
+            if res.scalar_one_or_none():
+                category = res.scalar_one()
+                category_map[cat_data["code"]] = category
+                print(f"    - {cat_data['name']} (ya existe)")
+                continue
+
             parent = category_map.get(cat_data["parent_code"])
             if parent:
                 category = Category(
@@ -115,6 +142,14 @@ async def create_suppliers(session: AsyncSession, tenant_id: int):
     supplier_map = {}  # code -> Supplier object
     
     for sup_data in SUPPLIERS:
+        # Verificar si ya existe
+        from sqlalchemy import select
+        res = await session.execute(select(Supplier).where(Supplier.code == sup_data["code"]))
+        if res.scalar_one_or_none():
+            supplier_map[sup_data["code"]] = res.scalar_one()
+            print(f"  - {sup_data['name']} (ya existe)")
+            continue
+
         supplier = Supplier(
             tenant_id=tenant_id,
             name=sup_data["name"],
@@ -156,6 +191,13 @@ async def create_products(
     product_count = 0
     
     for prod_data in PRODUCTS:
+        # Verificar si ya existe
+        from sqlalchemy import select
+        res = await session.execute(select(Product).where(Product.sku == prod_data["sku"]))
+        if res.scalar_one_or_none():
+            print(f"  - {prod_data['name']} (ya existe)")
+            continue
+
         category = category_map.get(prod_data["category_code"])
         supplier = supplier_map.get(prod_data["supplier_code"])
         
