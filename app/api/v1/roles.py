@@ -38,8 +38,7 @@ async def create_role(
     role_data = role_in.model_dump(exclude={"permission_ids"})
     new_role = await repo.create_role(current_user.tenant_id, role_data, role_in.permission_ids)
     await db.commit()
-    await db.refresh(new_role)
-    return new_role
+    return await repo.get_role_with_permissions(new_role.id, current_user.tenant_id)
 
 @router.put("/{role_id}", response_model=RoleOut)
 async def update_role(
@@ -57,8 +56,7 @@ async def update_role(
         raise HTTPException(status_code=404, detail="Role not found")
         
     await db.commit()
-    await db.refresh(updated_role)
-    return updated_role
+    return await repo.get_role_with_permissions(updated_role.id, current_user.tenant_id)
 
 @router.delete("/{role_id}")
 async def delete_role(
