@@ -14,6 +14,7 @@ from ...models.user import User, UserRole
 from ...repositories.report_repo import ReportRepository
 from ...schemas.report import InventoryReport
 from ...core.logging_config import get_logger
+from ...core.pagination import PaginationParams
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -533,8 +534,7 @@ async def export_sales_pdf(
     # Reutilizamos la lógica del repo de ventas pero sin offset/limit
     sales, _ = await s_repo.get_sales_paginated(
         tenant_id=tenant_id,
-        page=1,
-        size=500, # Un límite razonable para el PDF
+        pagination=PaginationParams(page=1, page_size=500), # Un límite razonable para el PDF
         start_date=start_date,
         end_date=end_date,
         status=status,
