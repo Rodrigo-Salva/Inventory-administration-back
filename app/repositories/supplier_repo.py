@@ -98,7 +98,7 @@ class SupplierRepository(BaseRepository[Supplier]):
         query = select(Supplier).where(
             and_(
                 Supplier.tenant_id == tenant_id,
-                Supplier.is_active == 1,
+                Supplier.is_active == True,
                 Supplier.is_deleted == False
             )
         ).order_by(Supplier.name)
