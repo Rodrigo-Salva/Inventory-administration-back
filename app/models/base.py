@@ -1,67 +1,37 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.sql import func
+from sqlalchemy.orm import DeclarativeBase, declared_attr
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from ..core.config import settings
+from typing import AsyncGenerator
+import os
 
-# Crear Base declarativa
-Base = declarative_base()
+# Base de datos async
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:28demarzo@localhost:5432/inventory_saas")
+engine = create_async_engine(DATABASE_URL, echo=True)
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-# Crear engine asíncrono
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow
-)
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session() as session:
+        yield session
 
-# Crear session factory
-async_session_maker = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
-
-
-# Dependency para obtener sesión de BD
-async def get_db():
-    """Dependency para obtener sesión de BD"""
-    async with async_session_maker() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
-
+class Base(DeclarativeBase):
+    pass
 
 class TimestampMixin:
-    """Mixin para agregar timestamps automáticos a los modelos"""
-    
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-
-class SoftDeleteMixin:
-    """Mixin para implementar soft delete"""
-    
-    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-    
-    def soft_delete(self):
-        """Marca el registro como eliminado"""
-        self.is_deleted = True
-        self.deleted_at = datetime.utcnow()
-    
-    def restore(self):
-        """Restaura un registro eliminado"""
-        self.is_deleted = False
-        self.deleted_at = None
-
-
-class TenantMixin:
-    """Mixin para multi-tenancy"""
+    @declared_attr
+    def created_at(cls):
+        return Column(DateTime, default=datetime.utcnow, nullable=False)
     
     @declared_attr
+    def updated_at(cls):
+        return Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+class TenantMixin:
+    @declared_attr
     def tenant_id(cls):
-        from sqlalchemy import Column, Integer, ForeignKey
-        return Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+        return Column(Integer, index=True, nullable=False)
+
+class SoftDeleteMixin:
+    @declared_attr
+    def is_deleted(cls):
+        return Column(Boolean, default=False, nullable=False)
