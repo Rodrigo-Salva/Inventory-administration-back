@@ -109,3 +109,15 @@ async def adjust_stock(
     )
     
     return movement
+
+
+@router.get("/kardex/{product_id}", response_model=List[InventoryMovementOut])
+async def get_kardex(
+    product_id: int,
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene el historial completo (sin paginación) de movimientos para un producto (Kardex)"""
+    repo = InventoryMovementRepository(db)
+    items, _ = await repo.get_by_product(product_id, tenant_id)
+    return items
