@@ -2,7 +2,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import get_db, PurchaseStatus
+from ...models.base import get_db
+from ...models.purchase import PurchaseStatus
 from ...dependencies import get_current_tenant, get_current_user
 from ...repositories import PurchaseRepository
 from ...schemas.purchase import (
