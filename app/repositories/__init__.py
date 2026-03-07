@@ -5,6 +5,9 @@ from .supplier_repo import SupplierRepository
 from .inventory_movement_repo import InventoryMovementRepository
 from .stock_alert_repo import StockAlertRepository
 from .tenant_repo import TenantRepository
+from .customer_repo import CustomerRepository
+from .purchase_repo import PurchaseRepository
+from .sale_repo import SaleRepository
 
 # Mantener UserRepository si existe
 try:
@@ -21,4 +24,7 @@ __all__ = [
     "StockAlertRepository",
     "UserRepository",
     "TenantRepository",
+    "CustomerRepository",
+    "PurchaseRepository",
+    "SaleRepository",
 ]

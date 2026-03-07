@@ -20,6 +20,7 @@ class Sale(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), index=True, nullable=True)
     
     total_amount = Column(Numeric(12, 2), nullable=False, default=0)
     payment_method = Column(String(20), nullable=False, default=PaymentMethod.CASH)
@@ -29,6 +30,7 @@ class Sale(Base, TimestampMixin):
     # Relaciones
     tenant = relationship("Tenant")
     user = relationship("User")
+    customer = relationship("Customer")
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
 
     def __repr__(self):

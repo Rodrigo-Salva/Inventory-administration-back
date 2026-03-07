@@ -11,6 +11,8 @@ from .stock_alert import StockAlert, AlertType, AlertStatus
 from .sale import Sale, SaleItem, PaymentMethod
 from .audit_log import AuditLog
 from .role import Role, Permission
+from .customer import Customer
+from .purchase import Purchase, PurchaseItem, PurchaseStatus
 
 __all__ = [
     "Base",
@@ -32,4 +34,8 @@ __all__ = [
     "PaymentMethod",
     "Role",
     "Permission",
+    "Customer",
+    "Purchase",
+    "PurchaseItem",
+    "PurchaseStatus",
 ]
