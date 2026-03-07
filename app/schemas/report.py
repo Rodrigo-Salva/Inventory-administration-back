@@ -11,6 +11,8 @@ class DashboardStats(BaseModel):
     exits_count: int
     sales_count: int = 0
     total_revenue: float = 0.0
+    purchase_count: int = 0
+    total_investment: float = 0.0
 
 class MovementTrend(BaseModel):
     date: str
@@ -30,6 +32,7 @@ class InventoryReport(BaseModel):
     stats: DashboardStats
     trends: List[MovementTrend]
     sales_trends: List[SalesTrend] = []
+    purchase_trends: List[SalesTrend] = [] # Reusing SalesTrend for purchases
     top_selling_products: List[CategoryValue] = []
     recent_movements: List[Dict[str, Any]]
     low_stock_products: List[Dict[str, Any]] = []

@@ -242,6 +242,45 @@ class ReportRepository:
         rows = result.all()
         return [{"date": str(row.day), "revenue": float(row.revenue or 0), "count": row.count} for row in rows]
 
+    async def get_purchase_stats(self, tenant_id: int, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> Dict[str, Any]:
+        """Estadísticas de compras para el dashboard"""
+        from ..models import Purchase
+        conditions = [Purchase.tenant_id == tenant_id]
+        if start_date: conditions.append(Purchase.created_at >= start_date)
+        if end_date: conditions.append(Purchase.created_at <= end_date)
+        else:
+            if not start_date: conditions.append(Purchase.created_at >= datetime.utcnow() - timedelta(days=30))
+
+        query = select(
+            func.count(Purchase.id).label("total_purchases"),
+            func.sum(Purchase.total_amount).label("total_investment")
+        ).where(and_(*conditions))
+        
+        result = await self.db.execute(query)
+        row = result.one_or_none()
+        
+        return {
+            "purchase_count": row.total_purchases or 0,
+            "total_investment": float(row.total_investment or 0)
+        }
+
+    async def get_purchase_trends(self, tenant_id: int, days: int = 7) -> List[Dict[str, Any]]:
+        """Tendencia de compras diaria"""
+        from ..models import Purchase
+        start_date = datetime.utcnow() - timedelta(days=days)
+        query = select(
+            func.date(Purchase.created_at).label("day"),
+            func.sum(Purchase.total_amount).label("investment"),
+            func.count(Purchase.id).label("count")
+        ).where(and_(
+            Purchase.tenant_id == tenant_id,
+            Purchase.created_at >= start_date
+        )).group_by(func.date(Purchase.created_at)).order_by("day")
+        
+        result = await self.db.execute(query)
+        rows = result.all()
+        return [{"date": str(row.day), "investment": float(row.investment or 0), "count": row.count} for row in rows]
+
     async def get_top_selling_products(self, tenant_id: int, limit: int = 5) -> List[Dict[str, Any]]:
         """Productos más vendidos por cantidad"""
         query = select(
@@ -402,3 +441,50 @@ class ReportRepository:
             "sellers": sellers_list,
             "low_stock_items": low_list
         }
+
+    async def get_profitability_report(
+        self,
+        tenant_id: int,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """Reporte detallado de rentabilidad por producto"""
+        conditions = [Sale.tenant_id == tenant_id, Sale.status == "completed"]
+        if start_date: conditions.append(Sale.created_at >= start_date)
+        if end_date: conditions.append(Sale.created_at <= end_date)
+
+        query = select(
+            Product.id,
+            Product.name,
+            Product.sku,
+            func.sum(SaleItem.quantity).label("quantity_sold"),
+            func.sum(SaleItem.subtotal).label("total_revenue"),
+            func.sum(SaleItem.quantity * func.coalesce(Product.cost, 0)).label("total_cost")
+        ).join(SaleItem, Product.id == SaleItem.product_id
+        ).join(Sale, Sale.id == SaleItem.sale_id
+        ).where(and_(*conditions)
+        ).group_by(Product.id, Product.name, Product.sku
+        ).order_by(desc("total_revenue"))
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        report = []
+        for row in rows:
+            revenue = float(row.total_revenue or 0)
+            cost = float(row.total_cost or 0)
+            profit = revenue - cost
+            margin = (profit / revenue * 100) if revenue > 0 else 0
+            
+            report.append({
+                "product_id": row.id,
+                "name": row.name,
+                "sku": row.sku,
+                "quantity_sold": int(row.quantity_sold or 0),
+                "total_revenue": revenue,
+                "total_cost": cost,
+                "profit": profit,
+                "margin_percentage": margin
+            })
+        
+        return report

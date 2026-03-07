@@ -96,3 +96,76 @@ class ReportGenerator:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def generate_purchase_order_pdf(purchase, tenant_name: str):
+        """
+        Genera una Orden de Compra profesional en PDF.
+        """
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Estilo de Título
+        title_style = ParagraphStyle(
+            'PurchaseTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            alignment=0, # Left
+            spaceAfter=10,
+            textColor=colors.darkblue
+        )
+        
+        # Header: Título y Datos de Empresa
+        elements.append(Paragraph(f"ORDEN DE COMPRA #{purchase.id}", title_style))
+        elements.append(Paragraph(f"Empresa: {tenant_name}", styles['Normal']))
+        elements.append(Paragraph(f"Fecha: {purchase.created_at.strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        if purchase.reference_number:
+            elements.append(Paragraph(f"Referencia: {purchase.reference_number}", styles['Normal']))
+        
+        elements.append(Spacer(1, 20))
+        
+        # Datos del Proveedor
+        elements.append(Paragraph("<b>PROVEEDOR:</b>", styles['Normal']))
+        elements.append(Paragraph(f"Nombre: {purchase.supplier.name}", styles['Normal']))
+        if purchase.supplier.tax_id:
+            elements.append(Paragraph(f"RUC/Tax ID: {purchase.supplier.tax_id}", styles['Normal']))
+        elements.append(Paragraph(f"Email: {purchase.supplier.email or 'N/A'}", styles['Normal']))
+        
+        elements.append(Spacer(1, 20))
+        
+        # Tabla de Items
+        data = [["Producto", "SKU", "Cantidad", "Costo Unit.", "Subtotal"]]
+        for item in purchase.items:
+            data.append([
+                item.product.name if item.product else "N/A",
+                item.product.sku if item.product else "N/A",
+                str(item.quantity),
+                f"${float(item.unit_cost):,.2f}",
+                f"${float(item.subtotal):,.2f}"
+            ])
+            
+        data.append(["", "", "", "TOTAL:", f"${float(purchase.total_amount):,.2f}"])
+        
+        table = Table(data, colWidths=[180, 80, 70, 80, 80])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -2), 1, colors.grey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (-2, -1), (-1, -1), 'RIGHT'),
+        ]))
+        
+        elements.append(table)
+        
+        # Notas
+        if purchase.notes:
+            elements.append(Spacer(1, 20))
+            elements.append(Paragraph("<b>NOTAS:</b>", styles['Normal']))
+            elements.append(Paragraph(purchase.notes, styles['Normal']))
+            
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer

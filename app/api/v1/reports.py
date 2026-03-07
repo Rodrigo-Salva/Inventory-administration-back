@@ -32,13 +32,17 @@ async def get_dashboard_data(
     
     stats = await repo.get_dashboard_stats(tenant_id, start_date=start_date, end_date=end_date)
     sales_stats = await repo.get_sales_stats(tenant_id, start_date=start_date, end_date=end_date)
+    purchase_stats = await repo.get_purchase_stats(tenant_id, start_date=start_date, end_date=end_date)
     stats.update({
         "sales_count": sales_stats["sales_count"],
-        "total_revenue": sales_stats["total_revenue"]
+        "total_revenue": sales_stats["total_revenue"],
+        "purchase_count": purchase_stats["purchase_count"],
+        "total_investment": purchase_stats["total_investment"]
     })
 
     trends = await repo.get_movement_trends(tenant_id, start_date=start_date, end_date=end_date)
     sales_trends = await repo.get_sales_trends(tenant_id)
+    purchase_trends = await repo.get_purchase_trends(tenant_id)
     top_selling = await repo.get_top_selling_products(tenant_id)
     
     recent = await repo.get_recent_movements(tenant_id)
@@ -52,6 +56,7 @@ async def get_dashboard_data(
         "stats": stats,
         "trends": trends,
         "sales_trends": sales_trends,
+        "purchase_trends": [{"date": t["date"], "revenue": t["investment"], "count": t["count"]} for t in purchase_trends], # Map investment to revenue for schema compatibility
         "top_selling_products": top_selling,
         "recent_movements": recent,
         "low_stock_products": low_stock,
@@ -60,6 +65,19 @@ async def get_dashboard_data(
         "user_activity": user_activity,
         "top_moving_products": top_moves
     }
+
+
+@router.get("/profitability")
+async def get_profitability_report(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reporte de rentabilidad por producto"""
+    repo = ReportRepository(db)
+    tenant_id = current_user.tenant_id
+    return await repo.get_profitability_report(tenant_id, start_date, end_date)
 
 @router.get("/inventory-csv")
 async def export_inventory_csv(

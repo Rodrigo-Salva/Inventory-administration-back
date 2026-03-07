@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from .product import ProductOut
 from .user import UserOut
+from .customer import CustomerSummary
 from datetime import datetime
 from decimal import Decimal
 
@@ -29,6 +30,7 @@ class SaleBase(BaseModel):
 
 class SaleCreate(SaleBase):
     items: List[SaleItemCreate]
+    customer_id: Optional[int] = None
 
 class SaleResponse(SaleBase):
     id: int
@@ -37,6 +39,8 @@ class SaleResponse(SaleBase):
     total_amount: Decimal
     created_at: datetime
     user: Optional[UserOut] = None
+    customer_id: Optional[int] = None
+    customer: Optional[CustomerSummary] = None
     items: List[SaleItemResponse]
 
     class Config:
