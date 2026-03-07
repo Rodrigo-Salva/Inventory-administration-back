@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
@@ -55,7 +55,8 @@ async def lifespan(app: FastAPI):
             # Creación de tablas por si no existen (Alembic sería ideal, pero usamos esto por ahora)
             from .models.base import Base
             from .models.sale import Sale, SaleItem
-            await conn.run_sync(Base.metadata.create_all, tables=[Sale.__table__, SaleItem.__table__])
+            from .models.purchase import Purchase, PurchaseItem
+            await conn.run_sync(Base.metadata.create_all, tables=[Sale.__table__, SaleItem.__table__, Purchase.__table__, PurchaseItem.__table__])
             # Asegurar que existe la columna status si no se creó
             try:
                 await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'"))
@@ -64,6 +65,26 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error creando tablas de ventas: {e}")
         logger.info("Gestión de esquema de ventas completada")
+        
+        logger.info("Creando tabla de clientes si no existe...")
+        try:
+            from .models.base import Base
+            from .models.customer import Customer
+            await conn.run_sync(Base.metadata.create_all, tables=[Customer.__table__])
+            # Asegurar campo customer_id en sales
+            await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id)"))
+            logger.info("Tabla de clientes verificada")
+        except Exception as e:
+            logger.error(f"Error creando tabla de clientes: {e}")
+
+        logger.info("Creando tabla de ajustes si no existe...")
+        try:
+            from .models.base import Base
+            from .models.adjustment import InventoryAdjustment
+            await conn.run_sync(Base.metadata.create_all, tables=[InventoryAdjustment.__table__])
+            logger.info("Tabla de ajustes verificada")
+        except Exception as e:
+            logger.error(f"Error creando tabla de ajustes: {e}")
 
         # 1. Crear tablas de Roles y Permisos (Separado para mayor compatibilidad)
         try:
@@ -130,6 +151,16 @@ async def lifespan(app: FastAPI):
             ("Ver Roles y Permisos", "roles:manage", "roles_permissions"),
             ("Configuración de Empresa", "settings:manage", "settings"),
             ("Ver Reportes Financieros", "reports:view", "reports"),
+            ("Ver Clientes", "customers:view", "customers"),
+            ("Crear Clientes", "customers:create", "customers"),
+            ("Editar Clientes", "customers:edit", "customers"),
+            ("Eliminar Clientes", "customers:delete", "customers"),
+            ("Ver Compras", "purchases:view", "purchases"),
+            ("Crear Compras", "purchases:create", "purchases"),
+            ("Recibir Compras", "purchases:receive", "purchases"),
+            ("Anular Compras", "purchases:annul", "purchases"),
+            ("Ver Ajustes de Inventario", "adjustments:view", "inventory"),
+            ("Crear Ajustes de Inventario", "adjustments:create", "inventory"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -210,6 +241,9 @@ app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
 app.include_router(reports.router, prefix=f"{settings.api_v1_str}/reports", tags=["reports"])
 app.include_router(roles.router, prefix=f"{settings.api_v1_str}/roles")
 app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
+app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
+app.include_router(purchases.router, prefix="/api/v1/purchases", tags=["purchases"])
+app.include_router(adjustments.router, prefix="/api/v1/adjustments", tags=["adjustments"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)
