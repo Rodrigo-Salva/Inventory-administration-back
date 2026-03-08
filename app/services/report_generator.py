@@ -169,3 +169,85 @@ class ReportGenerator:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def generate_expenses_pdf(expenses, tenant_name: str, filters: dict):
+        """
+        Genera un reporte PDF profesional de gastos.
+        """
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Título
+        title_style = ParagraphStyle(
+            'TitleStyle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            alignment=1, # Center
+            spaceAfter=12,
+            textColor=colors.red
+        )
+        elements.append(Paragraph(f"REPORTE DE GASTOS - {tenant_name.upper()}", title_style))
+        
+        # Subtítulo
+        subtitle_style = ParagraphStyle(
+            'SubtitleStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=20,
+            textColor=colors.gray
+        )
+        date_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        elements.append(Paragraph(f"Generado el: {date_str}", subtitle_style))
+
+        # Filtros
+        filter_parts = []
+        if filters.get('start_date'): filter_parts.append(f"Desde: {filters['start_date']}")
+        if filters.get('end_date'): filter_parts.append(f"Hasta: {filters['end_date']}")
+        if filters.get('category'): filter_parts.append(f"Categoría: {filters['category'].upper()}")
+        if filters.get('search'): filter_parts.append(f"Búsqueda: '{filters['search']}'")
+        
+        filter_text = "Filtros: " + (", ".join(filter_parts) if filter_parts else "Ninguno")
+        elements.append(Paragraph(filter_text, styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+        # Tabla
+        data = [["Fecha", "Descripción", "Referencia", "Categoría", "Monto"]]
+        total_sum = 0
+        
+        for exp in expenses:
+            total_sum += float(exp.amount)
+            data.append([
+                exp.date.strftime("%d/%m/%Y") if hasattr(exp.date, 'strftime') else str(exp.date),
+                exp.description[:40] + "..." if len(exp.description) > 40 else exp.description,
+                exp.reference or "-",
+                exp.category.upper(),
+                f"${float(exp.amount):,.2f}"
+            ])
+
+        data.append(["", "", "", "TOTAL:", f"${total_sum:,.2f}"])
+
+        table = Table(data, colWidths=[70, 180, 80, 80, 80])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.red),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.white),
+            ('GRID', (0, 0), (-1, -2), 1, colors.lightgrey),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('ALIGN', (-2, -1), (-1, -1), 'RIGHT'),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.red),
+            ('LINEABOVE', (0, -1), (-1, -1), 1, colors.red),
+        ]))
+        
+        elements.append(table)
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer

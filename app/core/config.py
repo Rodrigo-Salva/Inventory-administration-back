@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from dotenv import load_dotenv
@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # File Upload (para futuras features)
     max_upload_size_mb: int = 5
     allowed_image_extensions: List[str] | str = ["jpg", "jpeg", "png", "webp"]
+    
+    # AI (Gemini)
+    google_api_key: Optional[str] = None
 
     class Config:
         env_file = ".env"

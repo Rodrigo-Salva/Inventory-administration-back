@@ -488,3 +488,45 @@ class ReportRepository:
             })
         
         return report
+
+    async def get_ai_sales_history(self, tenant_id: int, days: int = 60) -> List[Dict[str, Any]]:
+        """Obtiene un historial compacto de ventas para análisis por IA"""
+        start_date = datetime.utcnow() - timedelta(days=days)
+        
+        query = select(
+            Product.name,
+            Product.sku,
+            Product.stock,
+            Product.min_stock,
+            func.date(Sale.created_at).label("day"),
+            func.sum(SaleItem.quantity).label("units_sold")
+        ).join(SaleItem, Product.id == SaleItem.product_id
+        ).join(Sale, Sale.id == SaleItem.sale_id
+        ).where(and_(
+            Sale.tenant_id == tenant_id,
+            Sale.status == "completed",
+            Sale.created_at >= start_date
+        )).group_by(
+            Product.name, Product.sku, Product.stock, Product.min_stock, func.date(Sale.created_at)
+        ).order_by(Product.name, "day")
+        
+        result = await self.db.execute(query)
+        rows = result.all()
+        
+        # Agrupar por producto para que la IA reciba un historial estructurado por item
+        forecast_data = {}
+        for row in rows:
+            if row.sku not in forecast_data:
+                forecast_data[row.sku] = {
+                    "p": row.name,
+                    "sku": row.sku,
+                    "s": row.stock,
+                    "min": row.min_stock,
+                    "h": []
+                }
+            forecast_data[row.sku]["h"].append({
+                "d": str(row.day),
+                "u": int(row.units_sold)
+            })
+            
+        return list(forecast_data.values())

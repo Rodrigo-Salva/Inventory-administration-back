@@ -27,4 +27,5 @@ class Tenant(Base):
     products = relationship("Product", back_populates="tenant")
     categories = relationship("Category", back_populates="tenant")
     suppliers = relationship("Supplier", back_populates="tenant")
+    expenses = relationship("Expense", back_populates="tenant")
 

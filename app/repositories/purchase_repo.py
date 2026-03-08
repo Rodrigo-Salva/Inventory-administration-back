@@ -1,4 +1,5 @@
 from typing import List, Optional, Tuple
+from datetime import datetime
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 from .base_repository import BaseRepository
@@ -29,15 +30,31 @@ class PurchaseRepository(BaseRepository[Purchase]):
         tenant_id: int, 
         status: Optional[PurchaseStatus] = None,
         supplier_id: Optional[int] = None,
+        search: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         pagination: PaginationParams = PaginationParams()
     ) -> Tuple[List[Purchase], int]:
         """Lista compras con filtros y paginación"""
-        query = select(Purchase).where(Purchase.tenant_id == tenant_id)
+        from sqlalchemy import and_, or_
+        conditions = [Purchase.tenant_id == tenant_id]
         
         if status:
-            query = query.where(Purchase.status == status)
+            conditions.append(Purchase.status == status)
         if supplier_id:
-            query = query.where(Purchase.supplier_id == supplier_id)
+            conditions.append(Purchase.supplier_id == supplier_id)
+        if start_date:
+            conditions.append(Purchase.created_at >= start_date)
+        if end_date:
+            conditions.append(Purchase.created_at <= end_date)
+            
+        if search:
+            conditions.append(or_(
+                Purchase.reference_number.ilike(f"%{search}%"),
+                Purchase.notes.ilike(f"%{search}%")
+            ))
+            
+        query = select(Purchase).where(and_(*conditions))
             
         # Contar total
         count_query = select(func.count()).select_from(query.subquery())
@@ -46,7 +63,11 @@ class PurchaseRepository(BaseRepository[Purchase]):
         
         # Paginar y ordenar por fecha descendente
         query = query.order_by(desc(Purchase.created_at)).offset(pagination.offset).limit(pagination.page_size)
-        query = query.options(selectinload(Purchase.supplier))
+        query = query.options(
+            selectinload(Purchase.supplier),
+            selectinload(Purchase.user),
+            selectinload(Purchase.items).selectinload(PurchaseItem.product)
+        )
         
         result = await self.db.execute(query)
         return list(result.scalars().all()), total_count

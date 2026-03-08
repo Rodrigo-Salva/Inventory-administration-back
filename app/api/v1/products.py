@@ -1,9 +1,12 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import get_db
 from ...dependencies import get_current_tenant, require_role, require_permission
 from ...models.user import User, UserRole
+import csv
+import io
+from decimal import Decimal
 from ...repositories import ProductRepository
 from ...schemas.product import (
     ProductCreate,
@@ -82,7 +85,7 @@ async def create_product(
     product_dict["tenant_id"] = tenant_id
     product_dict["is_active"] = True if product_in.is_active else False
     
-    product = await repo.create(product_dict)
+    product = await repo.create(product_dict, user_id=current_user.id)
     await db.commit()
     await db.refresh(product)
     
@@ -137,7 +140,7 @@ async def update_product(
     
     # Actualizar
     update_dict = product_in.model_dump(exclude_unset=True)
-    updated_product = await repo.update(product_id, update_dict, tenant_id)
+    updated_product = await repo.update(product_id, update_dict, tenant_id, user_id=current_user.id)
     await db.commit()
     await db.refresh(updated_product)
     
@@ -145,28 +148,147 @@ async def update_product(
     return updated_product
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{id}", status_code=status.HTTP_200_OK)
 async def delete_product(
-    product_id: int,
+    id: int,
     current_user: User = Depends(require_permission("products:delete")),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    tenant_id: int = Depends(get_current_tenant)
 ):
-    """Elimina un producto (soft delete) (Solo Admins/Managers)"""
+    """Elimina un producto (lógica de borrado suave)"""
     repo = ProductRepository(db)
-    tenant_id = current_user.tenant_id
-    
-    # Verificar que existe
+    await repo.delete(id, tenant_id, user_id=current_user.id)
+    await db.commit()
+    return {"detail": "Producto eliminado"}
+
+
+@router.get("/{product_id}/label")
+async def get_product_label(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: int = Depends(get_current_tenant)
+):
+    """Genera un PDF con etiquetas para un producto específico"""
+    repo = ProductRepository(db)
     product = await repo.get_by_id(product_id, tenant_id)
     if not product:
         raise ProductNotFoundException(product_id)
+        
+    pdf_buffer = LabelGenerator.generate_pdf([product], labels_per_row=2, rows_per_page=4)
+    filename = f"etiqueta_{product.sku}.pdf"
     
-    # Soft delete
-    await repo.delete(product_id, tenant_id, soft=True)
-    await db.commit()
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )
+
+
+@router.get("/labels/bulk")
+async def get_bulk_labels(
+    ids: str = Query(..., description="IDs de productos separados por comas"),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: int = Depends(get_current_tenant)
+):
+    """Genera un PDF con etiquetas para múltiples productos"""
+    try:
+        product_ids = [int(id_str) for id_str in ids.split(",") if id_str.strip()]
+        repo = ProductRepository(db)
+        products = []
+        for pid in product_ids:
+            p = await repo.get_by_id(pid, tenant_id)
+            if p:
+                products.append(p)
+                
+        if not products:
+            raise HTTPException(status_code=404, detail="No se encontraron productos")
+            
+        pdf_buffer = LabelGenerator.generate_pdf(products)
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": "attachment; filename=etiquetas_productos.pdf",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error en etiquetas masivas: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error al generar las etiquetas")
+
+
+@router.post("/import-csv", response_model=BulkImportResponse)
+async def import_products_csv(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("products:create")),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: int = Depends(get_current_tenant)
+):
+    if not file.filename.endswith('.csv'):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos CSV")
     
-    logger.info(f"Producto eliminado: {product_id}")
-    
-    return None
+    try:
+        content = await file.read()
+        decoded = content.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(decoded))
+        
+        repo = ProductRepository(db)
+        created = 0
+        skipped = 0
+        errors = []
+        
+        for row in reader:
+            try:
+                # Mapeo de campos (soporta español e inglés)
+                sku = row.get("sku")
+                if not sku:
+                    skipped += 1
+                    errors.append("Fila omitida: Falta SKU")
+                    continue
+                    
+                name = row.get("nombre") or row.get("name")
+                if not name:
+                    skipped += 1
+                    errors.append(f"SKU {sku}: Falta nombre")
+                    continue
+
+                price_str = row.get("precio") or row.get("price") or "0"
+                cost_str = row.get("costo") or row.get("cost")
+                stock_str = row.get("stock") or "0"
+                
+                product_in = {
+                    "name": name,
+                    "sku": sku,
+                    "price": Decimal(price_str.replace(',', '.')),
+                    "cost": Decimal(cost_str.replace(',', '.')) if cost_str else None,
+                    "stock": int(stock_str),
+                    "barcode": row.get("codigo_barras") or row.get("barcode"),
+                    "description": row.get("descripcion") or row.get("description"),
+                    "min_stock": int(row.get("min_stock") or 10),
+                }
+                
+                # Verificar duplicados
+                existing = await repo.get_by_sku(sku, tenant_id)
+                if existing:
+                    skipped += 1
+                    errors.append(f"SKU {sku} ya existe")
+                    continue
+                    
+                await repo.create(product_in, tenant_id, user_id=current_user.id)
+                created += 1
+            except Exception as e:
+                skipped += 1
+                errors.append(f"Error procesando SKU {row.get('sku', 'unknown')}: {str(e)}")
+                
+        await db.commit()
+        return BulkImportResponse(created=created, skipped=skipped, errors=errors)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Error al procesar el archivo: {str(e)}")
 
 
 @router.get("/low-stock/list", response_model=List[ProductOut])
@@ -226,11 +348,12 @@ async def bulk_create_products(
 async def get_product_labels(
     product_id: int,
     quantity: int = Query(12, ge=1, le=100),
-    tenant_id: int = Depends(get_current_tenant),
+    current_user: User = Depends(require_permission("products:labels")),
     db: AsyncSession = Depends(get_db)
 ):
     """Genera etiquetas PDF para un producto específico"""
     repo = ProductRepository(db)
+    tenant_id = current_user.tenant_id
     product = await repo.get_by_id(product_id, tenant_id)
     
     if not product:
@@ -242,6 +365,41 @@ async def get_product_labels(
     pdf_buffer = LabelGenerator.generate_pdf(products_list)
     
     filename = f"Etiquetas_{product.sku}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/labels/bulk")
+async def get_bulk_labels(
+    ids: str = Query(..., description="IDs de productos separados por comas"),
+    current_user: User = Depends(require_permission("products:labels")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Genera etiquetas PDF para múltiples productos"""
+    try:
+        product_ids = [int(id_str) for id_str in ids.split(",")]
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="IDs inválidos")
+        
+    repo = ProductRepository(db)
+    products = []
+    for pid in product_ids:
+        p = await repo.get_by_id(pid, current_user.tenant_id)
+        if p:
+            products.append(p)
+            
+    if not products:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No se encontraron productos")
+        
+    pdf_buffer = LabelGenerator.generate_pdf(products)
+    
+    filename = f"Etiquetas_Masivas_{datetime.now().strftime('%Y%m%d')}.pdf"
     
     return StreamingResponse(
         pdf_buffer,

@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.base import get_db
-from ...dependencies import get_current_tenant, require_role
+from ...dependencies import get_current_tenant, require_role, require_permission
 from ...models.user import User, UserRole
 from ...repositories.report_repo import ReportRepository
 from ...schemas.report import InventoryReport
@@ -580,6 +580,346 @@ async def export_sales_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.get("/expenses-csv")
+async def export_expenses_csv(
+    category: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    current_user: User = Depends(require_permission("expenses:export")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta gastos en formato CSV"""
+    from ...repositories.expense_repo import ExpenseRepository
+    repo = ExpenseRepository(db)
+    
+    expenses, _ = await repo.get_by_tenant(
+        tenant_id=current_user.tenant_id,
+        limit=1000,
+        category=category,
+        start_date=start_date,
+        end_date=end_date,
+        search=search
+    )
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Fecha", "Categoría", "Descripción", "Referencia", "Monto"])
+    
+    for e in expenses:
+        writer.writerow([e.date, e.category, e.description, e.reference or "", e.amount])
+    
+    filename = f"Gastos_{datetime.now().strftime('%Y%m%d')}.csv"
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.get("/expenses-excel")
+async def export_expenses_excel(
+    category: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    current_user: User = Depends(require_permission("expenses:export")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta gastos en formato Excel profesional"""
+    from ...repositories.expense_repo import ExpenseRepository
+    from ...repositories.tenant_repo import TenantRepository
+    repo = ExpenseRepository(db)
+    t_repo = TenantRepository(db)
+    
+    expenses, _ = await repo.get_by_tenant(
+        tenant_id=current_user.tenant_id,
+        limit=1000,
+        category=category,
+        start_date=start_date,
+        end_date=end_date,
+        search=search
+    )
+    tenant = await t_repo.get_by_id(current_user.tenant_id)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Gastos"
+    
+    title_font = Font(name='Arial', size=16, bold=True, color="1E40AF") # Standardized Blue
+    header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
+
+    ws.merge_cells('A1:E1')
+    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    ws['A1'] = f"REPORTE DE GASTOS - {tenant_name}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    headers = ["FECHA", "CATEGORÍA", "DESCRIPCIÓN", "REFERENCIA", "MONTO"]
+    ws.append([])
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    for idx, e in enumerate(expenses, start=4):
+        ws.append([e.date, e.category, e.description, e.reference or "", float(e.amount)])
+        for cell in ws[idx]: 
+            cell.border = thin_border
+            if cell.column == 5: cell.number_format = '"$"#,##0.00'
+
+    for col in ws.columns: ws.column_dimensions[get_column_letter(col[0].column)].width = 20
+    ws.column_dimensions['C'].width = 40
+
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    return StreamingResponse(
+        excel_file, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        headers={"Content-Disposition": f"attachment; filename=Gastos_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
+@router.get("/expenses-pdf")
+async def export_expenses_pdf(
+    category: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    current_user: User = Depends(require_permission("expenses:export")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta gastos en formato PDF profesional"""
+    from ...repositories.expense_repo import ExpenseRepository
+    from ...repositories.tenant_repo import TenantRepository
+    from ...services.report_generator import ReportGenerator
+    
+    repo = ExpenseRepository(db)
+    t_repo = TenantRepository(db)
+    
+    expenses, _ = await repo.get_by_tenant(
+        tenant_id=current_user.tenant_id,
+        limit=1000,
+        category=category,
+        start_date=start_date,
+        end_date=end_date,
+        search=search
+    )
+    
+    tenant = await t_repo.get_by_id(current_user.tenant_id)
+    tenant_name = tenant.name if tenant else "Mi Negocio"
+    
+    filters = {
+        "category": category,
+        "start_date": start_date,
+        "end_date": end_date,
+        "search": search
+    }
+    
+    pdf_buffer = ReportGenerator.generate_expenses_pdf(expenses, tenant_name, filters)
+    filename = f"Reporte_Gastos_{datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.get("/customers-excel")
+async def export_customers_excel(
+    search: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(require_permission("customers:view")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta clientes en formato Excel profesional"""
+    from ...repositories.customer_repo import CustomerRepository
+    from ...repositories.tenant_repo import TenantRepository
+    repo = CustomerRepository(db)
+    t_repo = TenantRepository(db)
+    
+    customers, _ = await repo.get_filtered(
+        tenant_id=current_user.tenant_id,
+        search=search,
+        is_active=is_active,
+        start_date=start_date,
+        end_date=end_date
+    )
+    tenant = await t_repo.get_by_id(current_user.tenant_id)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Clientes"
+    
+    title_font = Font(name='Arial', size=16, bold=True, color="1E40AF")
+    header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
+
+    ws.merge_cells('A1:F1')
+    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    ws['A1'] = f"REPORTE DE CLIENTES - {tenant_name}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    headers = ["ID", "NOMBRE", "DOCUMENTO", "EMAIL", "TELÉFONO", "ESTADO"]
+    ws.append([])
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    for idx, c in enumerate(customers, start=4):
+        ws.append([c.id, c.name, c.document_number or "", c.email or "", c.phone or "", "ACTIVO" if c.is_active else "INACTIVO"])
+        for cell in ws[idx]: cell.border = thin_border
+
+    for col in ws.columns: ws.column_dimensions[get_column_letter(col[0].column)].width = 20
+    ws.column_dimensions['B'].width = 35
+
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    return StreamingResponse(excel_file, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=Clientes_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+@router.get("/purchases-excel")
+async def export_purchases_excel(
+    status: Optional[str] = Query(None),
+    supplier_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(require_permission("purchases:view")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta compras en formato Excel profesional"""
+    from ...repositories.purchase_repo import PurchaseRepository
+    from ...repositories.tenant_repo import TenantRepository
+    repo = PurchaseRepository(db)
+    t_repo = TenantRepository(db)
+    
+    purchases, _ = await repo.get_filtered(
+        tenant_id=current_user.tenant_id,
+        status=status,
+        supplier_id=supplier_id,
+        search=search,
+        start_date=start_date,
+        end_date=end_date,
+        pagination=PaginationParams(page=1, page_size=1000)
+    )
+    tenant = await t_repo.get_by_id(current_user.tenant_id)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Compras"
+    
+    title_font = Font(name='Arial', size=16, bold=True, color="1E40AF")
+    header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
+
+    ws.merge_cells('A1:G1')
+    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    ws['A1'] = f"REPORTE DE COMPRAS - {tenant_name}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    headers = ["ID", "FECHA", "PROVEEDOR", "REFERENCIA", "ESTADO", "ITEMS", "TOTAL"]
+    ws.append([])
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    for idx, p in enumerate(purchases, start=4):
+        items_summary = ", ".join([f"{item.product.name} (x{item.quantity})" for item in p.items if item.product])
+        ws.append([p.id, p.created_at.strftime('%d/%m/%Y'), p.supplier.name if p.supplier else "N/A", p.reference_number or "", p.status.value, items_summary, float(p.total_amount)])
+        for cell in ws[idx]: 
+            cell.border = thin_border
+            if cell.column == 7: cell.number_format = '"$"#,##0.00'
+
+    for col in ws.columns: ws.column_dimensions[get_column_letter(col[0].column)].width = 20
+    ws.column_dimensions['F'].width = 40
+
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    return StreamingResponse(excel_file, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=Compras_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+@router.get("/adjustments-excel")
+async def export_adjustments_excel(
+    product_id: Optional[int] = Query(None),
+    adjustment_type: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(require_permission("inventory:adjust")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exporta ajustes de inventario en formato Excel profesional"""
+    from ...repositories.adjustment_repo import AdjustmentRepository
+    from ...repositories.tenant_repo import TenantRepository
+    repo = AdjustmentRepository(db)
+    t_repo = TenantRepository(db)
+    
+    adjustments = await repo.get_filtered(
+        tenant_id=current_user.tenant_id,
+        product_id=product_id,
+        adjustment_type=adjustment_type,
+        start_date=start_date,
+        end_date=end_date,
+        limit=1000
+    )
+    tenant = await t_repo.get_by_id(current_user.tenant_id)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ajustes"
+    
+    title_font = Font(name='Arial', size=16, bold=True, color="1E40AF")
+    header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
+
+    ws.merge_cells('A1:G1')
+    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    ws['A1'] = f"REPORTE DE AJUSTES - {tenant_name}"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    headers = ["ID", "FECHA", "PRODUCTO", "TIPO", "CANTIDAD", "RAZÓN", "NOTAS"]
+    ws.append([])
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    for idx, a in enumerate(adjustments, start=4):
+        ws.append([a.id, a.created_at.strftime('%d/%m/%Y %H:%M'), a.product.name if a.product else "N/A", a.adjustment_type, a.quantity, a.reason.value, a.notes or ""])
+        for cell in ws[idx]: cell.border = thin_border
+
+    for col in ws.columns: ws.column_dimensions[get_column_letter(col[0].column)].width = 20
+    ws.column_dimensions['C'].width = 35
+
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    return StreamingResponse(excel_file, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=Ajustes_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
 @router.get("/sales-history-stats")
 async def get_sales_history_stats(

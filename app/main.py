@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments, audit, notifications, ai, expenses
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
@@ -86,6 +86,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error creando tabla de ajustes: {e}")
 
+        logger.info("Creando tabla de gastos si no existe...")
+        try:
+            from .models.base import Base
+            from .models.expense import Expense
+            await conn.run_sync(Base.metadata.create_all, tables=[Expense.__table__])
+            logger.info("Tabla de gastos verificada")
+        except Exception as e:
+            logger.error(f"Error creando tabla de gastos: {e}")
+
         # 1. Crear tablas de Roles y Permisos (Separado para mayor compatibilidad)
         try:
             await conn.execute(text("""
@@ -161,6 +170,10 @@ async def lifespan(app: FastAPI):
             ("Anular Compras", "purchases:annul", "purchases"),
             ("Ver Ajustes de Inventario", "adjustments:view", "inventory"),
             ("Crear Ajustes de Inventario", "adjustments:create", "inventory"),
+            ("Ver Gastos", "expenses:view", "expenses"),
+            ("Registrar Gastos", "expenses:manage", "expenses"),
+            ("Ver Predicciones IA", "ai:forecast", "ai"),
+            ("Imprimir Etiquetas de Productos", "products:labels", "products"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -244,6 +257,10 @@ app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(purchases.router, prefix="/api/v1/purchases", tags=["purchases"])
 app.include_router(adjustments.router, prefix="/api/v1/adjustments", tags=["adjustments"])
+app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
+app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["expenses"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)

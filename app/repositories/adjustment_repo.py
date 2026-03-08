@@ -4,7 +4,8 @@ from ..models.adjustment import InventoryAdjustment, AdjustmentReason
 from ..models.product import Product
 from ..models.inventory_movement import InventoryMovement, MovementType
 from ..schemas.adjustment import AdjustmentCreate
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from datetime import datetime
 
 class AdjustmentRepository:
     def __init__(self, db: AsyncSession):
@@ -58,8 +59,54 @@ class AdjustmentRepository:
         await self.db.refresh(adjustment)
         return adjustment
 
-    async def get_all(self, tenant_id: int, skip: int = 0, limit: int = 100) -> List[InventoryAdjustment]:
-        query = select(InventoryAdjustment).where(InventoryAdjustment.tenant_id == tenant_id)\
-            .offset(skip).limit(limit).order_by(InventoryAdjustment.created_at.desc())
+    async def count_filtered(
+        self,
+        tenant_id: int,
+        product_id: Optional[int] = None,
+        adjustment_type: Optional[str] = None,
+        reason: Optional[AdjustmentReason] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> int:
+        from sqlalchemy import and_, func
+        conditions = [InventoryAdjustment.tenant_id == tenant_id]
+        if product_id: conditions.append(InventoryAdjustment.product_id == product_id)
+        if adjustment_type: conditions.append(InventoryAdjustment.adjustment_type == adjustment_type)
+        if reason: conditions.append(InventoryAdjustment.reason == reason)
+        if start_date: conditions.append(InventoryAdjustment.created_at >= start_date)
+        if end_date: conditions.append(InventoryAdjustment.created_at <= end_date)
+        
+        query = select(func.count()).select_from(InventoryAdjustment).where(and_(*conditions))
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
+    async def get_filtered(
+        self,
+        tenant_id: int,
+        product_id: Optional[int] = None,
+        adjustment_type: Optional[str] = None,
+        reason: Optional[AdjustmentReason] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[InventoryAdjustment]:
+        from sqlalchemy import and_, desc
+        from sqlalchemy.orm import selectinload
+        conditions = [InventoryAdjustment.tenant_id == tenant_id]
+        if product_id: conditions.append(InventoryAdjustment.product_id == product_id)
+        if adjustment_type: conditions.append(InventoryAdjustment.adjustment_type == adjustment_type)
+        if reason: conditions.append(InventoryAdjustment.reason == reason)
+        if start_date: conditions.append(InventoryAdjustment.created_at >= start_date)
+        if end_date: conditions.append(InventoryAdjustment.created_at <= end_date)
+        
+        query = select(InventoryAdjustment).where(and_(*conditions))\
+            .options(selectinload(InventoryAdjustment.product), selectinload(InventoryAdjustment.user))\
+            .order_by(desc(InventoryAdjustment.created_at))\
+            .offset(skip).limit(limit)
+            
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def get_all(self, tenant_id: int, skip: int = 0, limit: int = 100) -> List[InventoryAdjustment]:
+        return await self.get_filtered(tenant_id=tenant_id, skip=skip, limit=limit)

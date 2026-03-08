@@ -12,3 +12,4 @@ from .customer import Customer
 from .role import Role, Permission
 from .stock_alert import StockAlert, AlertType, AlertStatus
 from .audit_log import AuditLog
+from .expense import Expense
