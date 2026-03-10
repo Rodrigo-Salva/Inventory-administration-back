@@ -26,6 +26,7 @@ class InventoryService(BaseService):
     async def add_stock(
         self,
         product_id: int,
+        branch_id: int,
         quantity: int,
         tenant_id: int,
         user_id: Optional[int] = None,
@@ -60,17 +61,43 @@ class InventoryService(BaseService):
         if not product:
             raise ProductNotFoundException(product_id)
         
+        # Obtener stock de la sucursal
+        from sqlalchemy import select
+        from ..models.product_branch import ProductBranch
+        query = select(ProductBranch).where(
+            ProductBranch.product_id == product_id,
+            ProductBranch.branch_id == branch_id
+        )
+        result = await self.db.execute(query)
+        product_branch = result.scalar_one_or_none()
+
+        if not product_branch:
+            # Crear la asignación a la sucursal automáticamente
+            product_branch = ProductBranch(
+                product_id=product_id,
+                branch_id=branch_id,
+                stock=0,
+                min_stock=product.min_stock,
+                max_stock=product.max_stock
+            )
+            self.db.add(product_branch)
+            # Flush for ID if needed, but not strictly necessary here
+            
         # Guardar stock anterior
-        stock_before = product.stock
+        stock_before = product_branch.stock
         
         # Actualizar stock
+        product_branch.stock += quantity
+        stock_after = product_branch.stock
+        
+        # Sincronizar stock total en el producto padre
         product.stock += quantity
-        stock_after = product.stock
         
         # Crear movimiento
         movement_data = {
             "tenant_id": tenant_id,
             "product_id": product_id,
+            "branch_id": branch_id,
             "user_id": user_id,
             "movement_type": MovementType.ENTRY,
             "quantity": quantity,
@@ -95,6 +122,7 @@ class InventoryService(BaseService):
     async def remove_stock(
         self,
         product_id: int,
+        branch_id: int,
         quantity: int,
         tenant_id: int,
         user_id: Optional[int] = None,
@@ -130,21 +158,45 @@ class InventoryService(BaseService):
         if not product:
             raise ProductNotFoundException(product_id)
         
-        # Verificar stock suficiente
-        if not allow_negative and product.stock < quantity:
-            raise InsufficientStockException(product.name, quantity, product.stock)
+        # Verificar stock en la sucursal
+        from sqlalchemy import select
+        from ..models.product_branch import ProductBranch
+        query = select(ProductBranch).where(
+            ProductBranch.product_id == product_id,
+            ProductBranch.branch_id == branch_id
+        )
+        result = await self.db.execute(query)
+        product_branch = result.scalar_one_or_none()
+
+        if not product_branch:
+            # Crear la asignación a la sucursal automáticamente
+            product_branch = ProductBranch(
+                product_id=product_id,
+                branch_id=branch_id,
+                stock=0,
+                min_stock=product.min_stock,
+                max_stock=product.max_stock
+            )
+            self.db.add(product_branch)
+        
+        if not allow_negative and product_branch.stock < quantity:
+            raise InsufficientStockException(product.name, quantity, product_branch.stock)
         
         # Guardar stock anterior
-        stock_before = product.stock
+        stock_before = product_branch.stock
         
         # Actualizar stock
+        product_branch.stock -= quantity
+        stock_after = product_branch.stock
+        
+        # Sincronizar stock padre
         product.stock -= quantity
-        stock_after = product.stock
         
         # Crear movimiento (cantidad negativa para salidas)
         movement_data = {
             "tenant_id": tenant_id,
             "product_id": product_id,
+            "branch_id": branch_id,
             "user_id": user_id,
             "movement_type": MovementType.EXIT,
             "quantity": -quantity,  # Negativo para salidas
@@ -168,6 +220,7 @@ class InventoryService(BaseService):
     async def adjust_stock(
         self,
         product_id: int,
+        branch_id: int,
         new_stock: int,
         tenant_id: int,
         user_id: Optional[int] = None,
@@ -194,20 +247,45 @@ class InventoryService(BaseService):
         if not product:
             raise ProductNotFoundException(product_id)
         
+        # Obtener stock de la sucursal
+        from sqlalchemy import select
+        from ..models.product_branch import ProductBranch
+        query = select(ProductBranch).where(
+            ProductBranch.product_id == product_id,
+            ProductBranch.branch_id == branch_id
+        )
+        result = await self.db.execute(query)
+        product_branch = result.scalar_one_or_none()
+
+        if not product_branch:
+            # Crear la asignación a la sucursal automáticamente
+            product_branch = ProductBranch(
+                product_id=product_id,
+                branch_id=branch_id,
+                stock=0,
+                min_stock=product.min_stock,
+                max_stock=product.max_stock
+            )
+            self.db.add(product_branch)
+            
         # Calcular diferencia
-        stock_before = product.stock
+        stock_before = product_branch.stock
         difference = new_stock - stock_before
         
         if difference == 0:
-            raise InvalidStockOperationException("El nuevo stock es igual al actual")
+            raise InvalidStockOperationException("El nuevo stock es igual al actual en esta sucursal")
         
         # Actualizar stock
-        product.stock = new_stock
+        product_branch.stock = new_stock
+        
+        # Sincronizar stock padre
+        product.stock += difference
         
         # Crear movimiento
         movement_data = {
             "tenant_id": tenant_id,
             "product_id": product_id,
+            "branch_id": branch_id,
             "user_id": user_id,
             "movement_type": MovementType.ADJUSTMENT,
             "quantity": difference,

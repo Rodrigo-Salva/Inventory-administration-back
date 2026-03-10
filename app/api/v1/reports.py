@@ -171,7 +171,7 @@ async def export_inventory_excel(
 
     # Header Corporativo
     ws.merge_cells('A1:I1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE PRODUCTOS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -234,7 +234,7 @@ async def export_suppliers_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:H1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE PROVEEDORES - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -293,7 +293,7 @@ async def export_categories_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:F1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE CATEGORÍAS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -352,7 +352,7 @@ async def export_users_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:E1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE USUARIOS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -411,7 +411,7 @@ async def export_movements_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:I1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"KARDEX DE MOVIMIENTOS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -477,7 +477,7 @@ async def export_sales_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:G1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE VENTAS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -561,7 +561,7 @@ async def export_sales_pdf(
     )
     
     tenant = await t_repo.get_by_id(tenant_id)
-    tenant_name = tenant.name if tenant else "Mi Negocio"
+    tenant_name = tenant.name if tenant else "Inventory Administration"
     
     filters = {
         "start_date": start_date,
@@ -654,7 +654,7 @@ async def export_expenses_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:E1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE GASTOS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -713,7 +713,7 @@ async def export_expenses_pdf(
     )
     
     tenant = await t_repo.get_by_id(current_user.tenant_id)
-    tenant_name = tenant.name if tenant else "Mi Negocio"
+    tenant_name = tenant.name if tenant else "Inventory Administration"
     
     filters = {
         "category": category,
@@ -766,7 +766,7 @@ async def export_customers_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:F1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE CLIENTES - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -830,7 +830,7 @@ async def export_purchases_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:G1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE COMPRAS - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")
@@ -895,7 +895,7 @@ async def export_adjustments_excel(
     thin_border = Border(left=Side(style='thin', color="DDDDDD"), right=Side(style='thin', color="DDDDDD"), top=Side(style='thin', color="DDDDDD"), bottom=Side(style='thin', color="DDDDDD"))
 
     ws.merge_cells('A1:G1')
-    tenant_name = tenant.name.upper() if tenant else "SISTEMA"
+    tenant_name = tenant.name.upper() if tenant else "INVENTORY ADMINISTRATION"
     ws['A1'] = f"REPORTE DE AJUSTES - {tenant_name}"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal="center")

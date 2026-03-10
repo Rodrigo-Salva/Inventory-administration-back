@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from .base_repository import BaseRepository
 from ..models import Product
+from ..models.product_branch import ProductBranch
 from ..core.pagination import PaginationParams
 
 
@@ -13,6 +14,22 @@ class ProductRepository(BaseRepository[Product]):
     
     def __init__(self, db: AsyncSession):
         super().__init__(Product, db)
+        
+    async def get_by_id(self, id: int, tenant_id: Optional[int] = None) -> Optional[Product]:
+        """Obtiene un producto por ID con sus relaciones"""
+        query = select(Product).where(Product.id == id)
+        
+        if tenant_id is not None:
+            query = query.where(Product.tenant_id == tenant_id)
+            
+        query = query.options(
+            selectinload(Product.category),
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+        )
+        
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
     
     async def get_by_sku(self, sku: str, tenant_id: int) -> Optional[Product]:
         """Obtiene un producto por SKU"""
@@ -57,7 +74,8 @@ class ProductRepository(BaseRepository[Product]):
             )
         ).options(
             selectinload(Product.category),
-            selectinload(Product.supplier)
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
         )
         
         if pagination:
@@ -109,7 +127,10 @@ class ProductRepository(BaseRepository[Product]):
                 Product.category_id == category_id,
                 Product.is_deleted == False
             )
-        ).options(selectinload(Product.supplier))
+        ).options(
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+        )
         
         if pagination:
             from ..core.pagination import paginate
@@ -131,7 +152,10 @@ class ProductRepository(BaseRepository[Product]):
                 Product.supplier_id == supplier_id,
                 Product.is_deleted == False
             )
-        ).options(selectinload(Product.category))
+        ).options(
+            selectinload(Product.category),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+        )
         
         result = await self.db.execute(query)
         return result.scalars().all()
@@ -150,7 +174,8 @@ class ProductRepository(BaseRepository[Product]):
             )
         ).options(
             selectinload(Product.category),
-            selectinload(Product.supplier)
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
         )
         
         if pagination:
@@ -206,7 +231,8 @@ class ProductRepository(BaseRepository[Product]):
             
         query = select(Product).where(and_(*conditions)).options(
             selectinload(Product.category),
-            selectinload(Product.supplier)
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
         ).order_by(Product.name.asc())
         
         if pagination:
@@ -231,7 +257,8 @@ class ProductRepository(BaseRepository[Product]):
             )
         ).options(
             selectinload(Product.category),
-            selectinload(Product.supplier)
+            selectinload(Product.supplier),
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
         ).limit(limit)
         
         result = await self.db.execute(query)

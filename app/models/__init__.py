@@ -3,7 +3,9 @@ from .user import User, UserRole
 from .tenant import Tenant
 from .category import Category
 from .supplier import Supplier
+from .branch import Branch
 from .product import Product
+from .product_branch import ProductBranch
 from .inventory_movement import InventoryMovement, MovementType
 from .adjustment import InventoryAdjustment, AdjustmentReason
 from .purchase import Purchase, PurchaseItem, PurchaseStatus, PurchasePaymentStatus

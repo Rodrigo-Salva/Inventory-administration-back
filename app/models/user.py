@@ -24,6 +24,8 @@ class User(Base, TimestampMixin):
     role = Column(SQLEnum(UserRole), default=UserRole.SELLER, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     
     tenant = relationship("Tenant", back_populates="users")
     role_obj = relationship("Role", back_populates="users")
+    branch = relationship("Branch", back_populates="users")

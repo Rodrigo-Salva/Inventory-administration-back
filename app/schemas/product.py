@@ -58,6 +58,7 @@ class ProductWithRelations(ProductOut):
     """Producto con relaciones cargadas"""
     category: Optional["CategoryOut"] = None
     supplier: Optional["SupplierOut"] = None
+    branch_stocks: List["ProductBranchResponse"] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -150,6 +151,7 @@ class SupplierOut(SupplierBase):
 # Inventory Movement Schemas
 class InventoryMovementBase(BaseModel):
     product_id: int
+    branch_id: int
     quantity: int
     unit_cost: Optional[Decimal] = None
     reference: Optional[str] = Field(None, max_length=100)
@@ -159,6 +161,7 @@ class InventoryMovementBase(BaseModel):
 class AddStockRequest(BaseModel):
     """Request para agregar stock"""
     product_id: int
+    branch_id: int
     quantity: int = Field(..., gt=0)
     unit_cost: Optional[Decimal] = Field(None, ge=0)
     reference: Optional[str] = Field(None, max_length=100)
@@ -168,6 +171,7 @@ class AddStockRequest(BaseModel):
 class RemoveStockRequest(BaseModel):
     """Request para remover stock"""
     product_id: int
+    branch_id: int
     quantity: int = Field(..., gt=0)
     reference: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
@@ -177,6 +181,7 @@ class RemoveStockRequest(BaseModel):
 class AdjustStockRequest(BaseModel):
     """Request para ajustar stock"""
     product_id: int
+    branch_id: int
     new_stock: int = Field(..., ge=0)
     reason: Optional[str] = None
 
@@ -186,6 +191,7 @@ class InventoryMovementOut(BaseModel):
     id: int
     tenant_id: int
     product_id: int
+    branch_id: Optional[int] = None
     user_id: Optional[int]
     movement_type: str
     quantity: int
@@ -230,4 +236,5 @@ class BulkImportResponse(BaseModel):
 
 
 # Para evitar errores de forward reference
+from .branch import ProductBranchResponse
 ProductWithRelations.model_rebuild()

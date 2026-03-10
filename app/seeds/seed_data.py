@@ -49,7 +49,7 @@ async def create_tenant_and_user(session: AsyncSession):
 
     # Crear tenant
     tenant = Tenant(
-        name="Demo Company",
+        name="Inventory Administration",
         subdomain="demo"
     )
     session.add(tenant)

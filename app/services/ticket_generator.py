@@ -95,7 +95,7 @@ class TicketGenerator:
         c.setFont("Helvetica-Oblique", 8)
         c.drawCentredString(width/2, curr_y, "¡Gracias por su compra!")
         curr_y -= 5 * mm
-        c.drawCentredString(width/2, curr_y, "Inventory SaaS PRO")
+        c.drawCentredString(width/2, curr_y, "Inventory Administration")
         
         c.save()
         buffer.seek(0)

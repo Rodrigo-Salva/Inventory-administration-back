@@ -7,6 +7,7 @@ from ..models.purchase import Purchase, PurchaseItem, PurchaseStatus
 from ..models.product import Product
 from ..models.inventory_movement import InventoryMovement
 from ..core.pagination import PaginationParams
+from ..services.inventory_service import InventoryService
 
 class PurchaseRepository(BaseRepository[Purchase]):
     def __init__(self, db):
@@ -74,35 +75,32 @@ class PurchaseRepository(BaseRepository[Purchase]):
 
     async def receive_purchase(self, purchase_id: int, tenant_id: int) -> Optional[Purchase]:
         """
-        Marca una compra como recibida y actualiza el stock de los productos.
-        Este método debe ser llamado dentro de un contexto de transacción si es posible,
-        o asegurar commit externo.
+        Marca una compra como recibida y actualiza el stock de los productos usando InventoryService
         """
         purchase = await self.get_with_items(purchase_id, tenant_id)
         if not purchase or purchase.status != PurchaseStatus.DRAFT:
             return None
 
+        inv_service = InventoryService(self.db)
+        
         for item in purchase.items:
             product = item.product
             if not product:
                 continue
 
-            # 1. Registrar movimiento de inventario
-            movement = InventoryMovement(
-                tenant_id=tenant_id,
+            # 1. Usar InventoryService para registrar la entrada en la sucursal correcta
+            await inv_service.add_stock(
                 product_id=product.id,
-                movement_type="entry",
+                branch_id=purchase.branch_id,
                 quantity=item.quantity,
-                stock_before=product.stock,
-                stock_after=product.stock + item.quantity,
+                tenant_id=tenant_id,
+                user_id=purchase.user_id,
                 unit_cost=item.unit_cost,
                 reference=f"Compra #{purchase.id} {purchase.reference_number or ''}",
-                notes=f"Recepción de compra automatizada"
+                notes="Recepción de compra automatizada"
             )
-            self.db.add(movement)
 
-            # 2. Actualizar stock y costo del producto
-            product.stock += item.quantity
+            # 2. Actualizar costo del producto
             product.cost = item.unit_cost  # Actualizamos al último costo de compra
         
         # 3. Cambiar estado de la compra

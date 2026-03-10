@@ -25,6 +25,7 @@ class PurchaseItemOut(PurchaseItemBase):
 
 class PurchaseBase(BaseModel):
     supplier_id: int
+    branch_id: int
     reference_number: Optional[str] = None
     notes: Optional[str] = None
     due_date: Optional[datetime] = None

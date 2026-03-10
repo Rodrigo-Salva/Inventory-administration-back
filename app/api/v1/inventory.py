@@ -61,6 +61,7 @@ async def add_stock(
     
     movement = await service.add_stock(
         product_id=request.product_id,
+        branch_id=request.branch_id,
         quantity=request.quantity,
         tenant_id=current_user.tenant_id,
         unit_cost=request.unit_cost,
@@ -82,6 +83,7 @@ async def remove_stock(
     
     movement = await service.remove_stock(
         product_id=request.product_id,
+        branch_id=request.branch_id,
         quantity=request.quantity,
         tenant_id=current_user.tenant_id,
         reference=request.reference,
@@ -103,6 +105,7 @@ async def adjust_stock(
     
     movement = await service.adjust_stock(
         product_id=request.product_id,
+        branch_id=request.branch_id,
         new_stock=request.new_stock,
         tenant_id=current_user.tenant_id,
         reason=request.reason

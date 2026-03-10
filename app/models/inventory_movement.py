@@ -22,6 +22,7 @@ class InventoryMovement(Base, TimestampMixin):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Usuario que realizó el movimiento
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)  # Sucursal donde se realizó el movimiento
     
     # Tipo y cantidad
     movement_type = Column(Enum(MovementType, native_enum=False, length=20), nullable=False, index=True)
@@ -44,6 +45,7 @@ class InventoryMovement(Base, TimestampMixin):
     tenant = relationship("Tenant")
     product = relationship("Product", back_populates="movements")
     user = relationship("User")
+    branch = relationship("Branch")
     
     # Índices compuestos
     __table_args__ = (

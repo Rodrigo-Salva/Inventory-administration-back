@@ -19,7 +19,9 @@ class Purchase(Base, TimestampMixin, SoftDeleteMixin):
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), index=True, nullable=False)
+    branch_id = Column(Integer, ForeignKey("branches.id"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Usuario que realizó la compra
+
     
     reference_number = Column(String(100), nullable=True)  # Factura del proveedor
     total_amount = Column(Numeric(12, 2), default=0, nullable=False)
@@ -31,6 +33,7 @@ class Purchase(Base, TimestampMixin, SoftDeleteMixin):
     # Relaciones
     tenant = relationship("Tenant")
     supplier = relationship("Supplier")
+    branch = relationship("Branch")
     user = relationship("User")
     items = relationship("PurchaseItem", back_populates="purchase", cascade="all, delete-orphan")
 
