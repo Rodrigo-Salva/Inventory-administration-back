@@ -4,11 +4,14 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments, audit, notifications, ai, expenses
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments, audit, notifications, ai, expenses, branches
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
 from .core.exceptions import InventoryBaseException
+from .core.context_middleware import ContextMiddleware
+from .core.audit_listener import setup_audit_listeners
+from .models.base import Base
 import logging
 
 
@@ -22,6 +25,10 @@ async def lifespan(app: FastAPI):
     """Manejo de eventos de inicio y cierre"""
     # Startup
     logger.info("Iniciando aplicación...")
+    
+    # Configurar Listeners de auditoría
+    logger.info("Configurando escuchadores de auditoría SQLAlchemy...")
+    setup_audit_listeners(Base)
     
     # Auto-migración temporal para sincronizar tabla tenants
     from sqlalchemy import text
@@ -50,10 +57,26 @@ async def lifespan(app: FastAPI):
             pass
         logger.info("Sincronización de categorías completada")
 
+        logger.info("Creando tablas principales (sucursales)...")
+        try:
+            from .models.branch import Branch
+            from .models.product_branch import ProductBranch
+            # Tablas base que deben existir primero
+            await conn.run_sync(Base.metadata.create_all, tables=[Branch.__table__])
+            
+            # Crear Sucursal Principal por defecto si no existe una para que no rompa el tenant
+            await conn.execute(text("""
+                INSERT INTO branches (tenant_id, name, is_active, is_deleted, created_at, updated_at)
+                SELECT t.id, 'Sucursal Principal', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                FROM tenants t
+                WHERE NOT EXISTS (SELECT 1 FROM branches b WHERE b.tenant_id = t.id)
+            """))
+            logger.info("Tablas de sucursales verificadas")
+        except Exception as e:
+            logger.error(f"Error creando tablas de sucursales: {e}")
+
         logger.info("Creando tablas de ventas si no existen...")
         try:
-            # Creación de tablas por si no existen (Alembic sería ideal, pero usamos esto por ahora)
-            from .models.base import Base
             from .models.sale import Sale, SaleItem
             from .models.purchase import Purchase, PurchaseItem
             await conn.run_sync(Base.metadata.create_all, tables=[Sale.__table__, SaleItem.__table__, Purchase.__table__, PurchaseItem.__table__])
@@ -61,6 +84,23 @@ async def lifespan(app: FastAPI):
             try:
                 await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'"))
             except Exception: pass
+            
+            # Migración Purchase
+            try:
+                await conn.execute(text("ALTER TABLE purchases ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)"))
+                
+                # Asignar a la Sucursal Principal de cada tenant las compras existentes sin branch_id
+                await conn.execute(text("""
+                    UPDATE purchases p
+                    SET branch_id = b.id
+                    FROM branches b
+                    WHERE p.tenant_id = b.tenant_id
+                    AND b.name = 'Sucursal Principal'
+                    AND p.branch_id IS NULL
+                """))
+            except Exception as e:
+                logger.warning(f"Cuidado al sincronizar branch_id en Purchases: {e}")
+                
             logger.info("Tablas de ventas verificadas/creadas")
         except Exception as e:
             logger.error(f"Error creando tablas de ventas: {e}")
@@ -68,7 +108,6 @@ async def lifespan(app: FastAPI):
         
         logger.info("Creando tabla de clientes si no existe...")
         try:
-            from .models.base import Base
             from .models.customer import Customer
             await conn.run_sync(Base.metadata.create_all, tables=[Customer.__table__])
             # Asegurar campo customer_id en sales
@@ -79,7 +118,6 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tabla de ajustes si no existe...")
         try:
-            from .models.base import Base
             from .models.adjustment import InventoryAdjustment
             await conn.run_sync(Base.metadata.create_all, tables=[InventoryAdjustment.__table__])
             logger.info("Tabla de ajustes verificada")
@@ -88,7 +126,6 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tabla de gastos si no existe...")
         try:
-            from .models.base import Base
             from .models.expense import Expense
             await conn.run_sync(Base.metadata.create_all, tables=[Expense.__table__])
             logger.info("Tabla de gastos verificada")
@@ -124,12 +161,38 @@ async def lifespan(app: FastAPI):
                     PRIMARY KEY (role_id, permission_id)
                 );
             """))
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS max_stock INTEGER"))
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
+            logger.info("Verificación de columnas de productos completada")
+
+            # Migración: Agregar branch_id a inventory_movements
+            try:
+                await conn.execute(text("ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)"))
+            except Exception: pass
+
+            # Migración: Asegurar que ProductBranch exista para todos los productos de las sucursales principales
+            logger.info("Migrando stock de productos hacia ProductBranch...")
+            await conn.run_sync(Base.metadata.create_all, tables=[ProductBranch.__table__])
+            await conn.execute(text("""
+                INSERT INTO product_branches (product_id, branch_id, stock, min_stock, max_stock, created_at, updated_at)
+                SELECT p.id, b.id, p.stock, p.min_stock, p.max_stock, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                FROM products p
+                JOIN branches b ON b.tenant_id = p.tenant_id
+                WHERE b.name = 'Sucursal Principal'
+                AND NOT EXISTS (
+                    SELECT 1 FROM product_branches pb 
+                    WHERE pb.product_id = p.id AND pb.branch_id = b.id
+                )
+            """))
+            logger.info("Migración a ProductBranch completada")
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id)"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)"))
         except Exception as e:
-            logger.error(f"Error creando tablas de roles: {e}")
+            logger.error(f"Error creando tablas de roles/branch users: {e}")
             # Intentar solo la columna por si las tablas ya existían pero la columna no
             try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER"))
+                await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id INTEGER"))
             except: pass
 
         # 2. Seed de Permisos fijos
@@ -172,8 +235,13 @@ async def lifespan(app: FastAPI):
             ("Crear Ajustes de Inventario", "adjustments:create", "inventory"),
             ("Ver Gastos", "expenses:view", "expenses"),
             ("Registrar Gastos", "expenses:manage", "expenses"),
+            ("Exportar Gastos", "expenses:export", "expenses"),
             ("Ver Predicciones IA", "ai:forecast", "ai"),
             ("Imprimir Etiquetas de Productos", "products:labels", "products"),
+            ("Ver Sucursales", "branches:view", "branches"),
+            ("Crear Sucursales", "branches:create", "branches"),
+            ("Editar Sucursales", "branches:edit", "branches"),
+            ("Eliminar Sucursales", "branches:delete", "branches"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -209,6 +277,9 @@ app = FastAPI(
     description="Sistema de inventario multi-tenant con FastAPI",
     lifespan=lifespan
 )
+
+# Middlewares
+app.add_middleware(ContextMiddleware)
 
 # CORS
 logger.info(f"Habilitando CORS para origenes: {settings.cors_origins}")
@@ -254,6 +325,7 @@ app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
 app.include_router(reports.router, prefix=f"{settings.api_v1_str}/reports", tags=["reports"])
 app.include_router(roles.router, prefix=f"{settings.api_v1_str}/roles")
 app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
+app.include_router(branches.router, prefix=f"{settings.api_v1_str}/branches", tags=["branches"])
 app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
 app.include_router(purchases.router, prefix="/api/v1/purchases", tags=["purchases"])
 app.include_router(adjustments.router, prefix="/api/v1/adjustments", tags=["adjustments"])
