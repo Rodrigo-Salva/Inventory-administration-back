@@ -23,6 +23,7 @@ class InventoryMovement(Base, TimestampMixin):
     product_id = Column(Integer, ForeignKey("products.id"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Usuario que realizó el movimiento
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)  # Sucursal donde se realizó el movimiento
+    batch_id = Column(Integer, ForeignKey("product_batches.id"), nullable=True, index=True)
     
     # Tipo y cantidad
     movement_type = Column(Enum(MovementType, native_enum=False, length=20), nullable=False, index=True)
@@ -46,6 +47,7 @@ class InventoryMovement(Base, TimestampMixin):
     product = relationship("Product", back_populates="movements")
     user = relationship("User")
     branch = relationship("Branch")
+    batch = relationship("ProductBatch")
     
     # Índices compuestos
     __table_args__ = (

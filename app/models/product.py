@@ -40,6 +40,7 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     movements = relationship("InventoryMovement", back_populates="product", cascade="all, delete-orphan")
     alerts = relationship("StockAlert", back_populates="product", cascade="all, delete-orphan")
     branch_stocks = relationship("ProductBranch", back_populates="product", cascade="all, delete-orphan")
+    batches = relationship("ProductBatch", back_populates="product", cascade="all, delete-orphan")
     
     # Índices compuestos para optimización
     __table_args__ = (

@@ -12,13 +12,15 @@ class SaleItemBase(BaseModel):
     unit_price: Decimal
 
 class SaleItemCreate(SaleItemBase):
-    pass
+    batch_id: Optional[int] = None
 
 class SaleItemResponse(SaleItemBase):
     id: int
     subtotal: Decimal
     product_name: Optional[str] = None
     product: Optional[ProductOut] = None
+    batch_id: Optional[int] = None
+    batch_number: Optional[str] = None
 
     class Config:
         from_attributes = True

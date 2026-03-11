@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments, audit, notifications, ai, expenses, branches
+from .api.v1 import auth, products, inventory, health, categories, suppliers, users, tenant, reports, sales, roles, customers, purchases, adjustments, audit, notifications, ai, expenses, branches, quotes, product_batches
 from .core.config import settings
 from .core.logging_config import setup_logging
 from .core.cache import cache_manager
@@ -333,6 +333,8 @@ app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["expenses"])
+app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
+app.include_router(product_batches.router, prefix="/api/v1/product-batches", tags=["product-batches"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)
