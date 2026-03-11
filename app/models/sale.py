@@ -43,6 +43,7 @@ class SaleItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    batch_id = Column(Integer, ForeignKey("product_batches.id"), nullable=True, index=True)
     
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Numeric(12, 2), nullable=False)
@@ -51,6 +52,7 @@ class SaleItem(Base):
     # Relaciones
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product")
+    batch = relationship("ProductBatch")
 
     def __repr__(self):
         return f"<SaleItem(id={self.id}, product_id={self.product_id}, qty={self.quantity})>"

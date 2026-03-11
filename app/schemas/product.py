@@ -11,6 +11,7 @@ class ProductBase(BaseModel):
     barcode: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = None
     price: Decimal = Field(..., gt=0)
+    batch_id: Optional[int] = Field(None, gt=0)
     cost: Optional[Decimal] = Field(None, ge=0)
     stock: int = Field(default=0, ge=0)
     min_stock: int = Field(default=10, ge=0)
@@ -59,6 +60,7 @@ class ProductWithRelations(ProductOut):
     category: Optional["CategoryOut"] = None
     supplier: Optional["SupplierOut"] = None
     branch_stocks: List["ProductBranchResponse"] = []
+    batches: List["ProductBatchOut"] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -237,4 +239,5 @@ class BulkImportResponse(BaseModel):
 
 # Para evitar errores de forward reference
 from .branch import ProductBranchResponse
+from .product_batch import ProductBatchOut
 ProductWithRelations.model_rebuild()

@@ -25,7 +25,8 @@ class ProductRepository(BaseRepository[Product]):
         query = query.options(
             selectinload(Product.category),
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         )
         
         result = await self.db.execute(query)
@@ -75,7 +76,8 @@ class ProductRepository(BaseRepository[Product]):
         ).options(
             selectinload(Product.category),
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         )
         
         if pagination:
@@ -129,7 +131,8 @@ class ProductRepository(BaseRepository[Product]):
             )
         ).options(
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         )
         
         if pagination:
@@ -154,7 +157,8 @@ class ProductRepository(BaseRepository[Product]):
             )
         ).options(
             selectinload(Product.category),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         )
         
         result = await self.db.execute(query)
@@ -175,7 +179,8 @@ class ProductRepository(BaseRepository[Product]):
         ).options(
             selectinload(Product.category),
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         )
         
         if pagination:
@@ -232,7 +237,8 @@ class ProductRepository(BaseRepository[Product]):
         query = select(Product).where(and_(*conditions)).options(
             selectinload(Product.category),
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         ).order_by(Product.name.asc())
         
         if pagination:
@@ -258,7 +264,8 @@ class ProductRepository(BaseRepository[Product]):
         ).options(
             selectinload(Product.category),
             selectinload(Product.supplier),
-            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch)
+            selectinload(Product.branch_stocks).selectinload(ProductBranch.branch),
+            selectinload(Product.batches)
         ).limit(limit)
         
         result = await self.db.execute(query)

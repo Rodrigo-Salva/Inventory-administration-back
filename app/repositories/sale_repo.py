@@ -4,6 +4,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from .base_repository import BaseRepository
 from ..models.sale import Sale, SaleItem
 from ..models.product import Product
+from ..models.product_batch import ProductBatch
 from ..models.inventory_movement import InventoryMovement, MovementType
 from ..core.exceptions import ProductNotFoundException, InsufficientStockException
 from decimal import Decimal
@@ -63,15 +64,29 @@ class SaleRepository(BaseRepository[Sale]):
             subtotal = Decimal(str(item_data.quantity)) * Decimal(str(item_data.unit_price))
             total_amount += subtotal
             
-            # 4. Crear SaleItem
+            # 4. Crear SaleItem con lote si aplica
             sale_item = SaleItem(
                 sale_id=new_sale.id,
                 product_id=product.id,
+                batch_id=item_data.batch_id,
                 quantity=item_data.quantity,
                 unit_price=item_data.unit_price,
                 subtotal=subtotal
             )
             sale_items.append(sale_item)
+            
+            # 4.1 Descontar de Lote si se especificó
+            if item_data.batch_id:
+                result_batch = await self.db.execute(
+                    select(ProductBatch).where(ProductBatch.id == item_data.batch_id, ProductBatch.tenant_id == tenant_id)
+                )
+                batch = result_batch.scalar_one_or_none()
+                if not batch:
+                    raise Exception(f"Lote ID {item_data.batch_id} no encontrado")
+                if batch.current_quantity < item_data.quantity:
+                    raise InsufficientStockException(f"{product.name} (Lote: {batch.batch_number})", item_data.quantity, batch.current_quantity)
+                
+                batch.current_quantity -= item_data.quantity
             
             # 5. Actualizar stock del producto
             stock_before = product.stock
@@ -81,6 +96,7 @@ class SaleRepository(BaseRepository[Sale]):
             movement = InventoryMovement(
                 tenant_id=tenant_id,
                 product_id=product.id,
+                batch_id=item_data.batch_id,
                 user_id=user_id,
                 movement_type=MovementType.EXIT,
                 quantity=-item_data.quantity,
