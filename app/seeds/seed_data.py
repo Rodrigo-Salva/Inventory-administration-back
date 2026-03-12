@@ -187,31 +187,69 @@ async def create_roles_and_permissions(session: AsyncSession, tenant_id: int):
     
     # 1. Definir permisos base
     permissions_data = [
-        # Productos
+        # Dashboard
+        {"name": "Ver Dashboard", "codename": "dashboard:view", "module": "admin"},
+
+        # Productos y Categorías
         {"name": "Ver Productos", "codename": "products:view", "module": "inventory"},
         {"name": "Crear Productos", "codename": "products:create", "module": "inventory"},
         {"name": "Editar Productos", "codename": "products:edit", "module": "inventory"},
         {"name": "Eliminar Productos", "codename": "products:delete", "module": "inventory"},
+        {"name": "Ver Categorías", "codename": "categories:view", "module": "inventory"},
         
+        # Proveedores y Compras
+        {"name": "Ver Proveedores", "codename": "suppliers:view", "module": "inventory"},
+        {"name": "Ver Compras", "codename": "purchases:view", "module": "inventory"},
+        {"name": "Crear Compras", "codename": "purchases:create", "module": "inventory"},
+        {"name": "Gestionar Compras", "codename": "purchases:manage", "module": "inventory"},
+
         # Lotes
         {"name": "Ver Lotes", "codename": "batches:view", "module": "inventory"},
         {"name": "Gestionar Lotes", "codename": "batches:manage", "module": "inventory"},
         
-        # Inventario / Kardex
+        # Inventario / Kardex / Ajustes
         {"name": "Ver Inventario", "codename": "inventory:view", "module": "inventory"},
+        {"name": "Ver Ajustes", "codename": "adjustments:view", "module": "inventory"},
+        {"name": "Realizar Ajustes", "codename": "adjustments:create", "module": "inventory"},
         {"name": "Ajustar Stock", "codename": "inventory:adjust", "module": "inventory"},
         
+        # Gastos
+        {"name": "Ver Gastos", "codename": "expenses:view", "module": "finance"},
+        {"name": "Crear Gastos", "codename": "expenses:create", "module": "finance"},
+        {"name": "Gestionar Gastos", "codename": "expenses:manage", "module": "finance"},
+        {"name": "Exportar Gastos", "codename": "expenses:export", "module": "finance"},
+
         # Cotizaciones
         {"name": "Ver Cotizaciones", "codename": "quotes:view", "module": "sales"},
         {"name": "Crear Cotizaciones", "codename": "quotes:create", "module": "sales"},
         
         # Ventas
         {"name": "Ver Ventas", "codename": "sales:view", "module": "sales"},
-        {"name": "Realizar Ventas", "codename": "sales:pos", "module": "sales"},
+        {"name": "Realizar Ventas", "codename": "sales:create", "module": "sales"},
+        {"name": "Punto de Venta", "codename": "sales:pos", "module": "sales"},
         
+        # Clientes
+        {"name": "Ver Clientes", "codename": "customers:view", "module": "sales"},
+        {"name": "Crear Clientes", "codename": "customers:create", "module": "sales"},
+
+        # Sucursales
+        {"name": "Ver Sucursales", "codename": "branches:view", "module": "admin"},
+        {"name": "Crear Sucursales", "codename": "branches:create", "module": "admin"},
+        {"name": "Editar Sucursales", "codename": "branches:edit", "module": "admin"},
+
         # Roles y Usuarios
+        {"name": "Ver Usuarios", "codename": "users:view", "module": "admin"},
         {"name": "Ver Roles", "codename": "roles:view", "module": "admin"},
         {"name": "Gestionar Roles", "codename": "roles:manage", "module": "admin"},
+        {"name": "Configuración", "codename": "settings:manage", "module": "admin"},
+
+        # Reportes
+        {"name": "Ver Reportes", "codename": "reports:view", "module": "admin"},
+
+        # Traslados
+        {"name": "Ver Traslados", "codename": "transfers:view", "module": "inventory"},
+        {"name": "Crear Traslados", "codename": "transfers:create", "module": "inventory"},
+        {"name": "Gestionar Traslados", "codename": "transfers:manage", "module": "inventory"},
     ]
     
     # Crear todos los permisos
@@ -238,11 +276,19 @@ async def create_roles_and_permissions(session: AsyncSession, tenant_id: int):
             "description": "Gerente de Inventario y Ventas",
             "is_system": False,
             "permissions": [
+                "dashboard:view",
                 "products:view", "products:create", "products:edit",
+                "categories:view", "suppliers:view",
+                "purchases:view", "purchases:create", "purchases:manage",
                 "batches:view", "batches:manage",
                 "inventory:view", "inventory:adjust",
+                "adjustments:view", "adjustments:create",
+                "expenses:view", "expenses:create", "expenses:manage",
                 "quotes:view", "quotes:create",
-                "sales:view", "sales:pos"
+                "sales:view", "sales:pos", "sales:create",
+                "customers:view", "customers:create",
+                "transfers:view", "transfers:create", "transfers:manage",
+                "branches:view", "users:view"
             ]
         },
         "SELLER": {

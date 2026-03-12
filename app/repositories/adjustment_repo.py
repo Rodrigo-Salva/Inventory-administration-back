@@ -110,3 +110,44 @@ class AdjustmentRepository:
 
     async def get_all(self, tenant_id: int, skip: int = 0, limit: int = 100) -> List[InventoryAdjustment]:
         return await self.get_filtered(tenant_id=tenant_id, skip=skip, limit=limit)
+
+    async def get_stats(self, tenant_id: int) -> dict:
+        from sqlalchemy import func
+        
+        # Total adjustments
+        total_query = select(func.count(InventoryAdjustment.id)).where(InventoryAdjustment.tenant_id == tenant_id)
+        total_res = await self.db.execute(total_query)
+        total_count = total_res.scalar() or 0
+        
+        # Count by type
+        in_query = select(func.count(InventoryAdjustment.id)).where(
+            InventoryAdjustment.tenant_id == tenant_id, 
+            InventoryAdjustment.adjustment_type == "IN"
+        )
+        out_query = select(func.count(InventoryAdjustment.id)).where(
+            InventoryAdjustment.tenant_id == tenant_id, 
+            InventoryAdjustment.adjustment_type == "OUT"
+        )
+        
+        in_res = await self.db.execute(in_query)
+        out_res = await self.db.execute(out_query)
+        
+        in_count = in_res.scalar() or 0
+        out_count = out_res.scalar() or 0
+        
+        # Most common reason
+        reason_query = select(InventoryAdjustment.reason, func.count(InventoryAdjustment.id))\
+            .where(InventoryAdjustment.tenant_id == tenant_id)\
+            .group_by(InventoryAdjustment.reason)\
+            .order_by(func.count(InventoryAdjustment.id).desc())\
+            .limit(1)
+            
+        reason_res = await self.db.execute(reason_query)
+        common_reason = reason_res.first()
+        
+        return {
+            "total_count": total_count,
+            "in_count": in_count,
+            "out_count": out_count,
+            "most_common_reason": common_reason[0] if common_reason else None
+        }
