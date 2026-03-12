@@ -14,6 +14,7 @@ from .sale import Sale, SaleItem, SaleStatus, PaymentMethod
 from .customer import Customer
 from .role import Role, Permission
 from .stock_alert import StockAlert, AlertType, AlertStatus
+from .stock_transfer import StockTransfer, StockTransferItem, StockTransferStatus
 from .audit_log import AuditLog
 from .expense import Expense
 from .quote import Quote, QuoteItem, QuoteStatus

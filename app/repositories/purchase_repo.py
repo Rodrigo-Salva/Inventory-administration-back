@@ -108,3 +108,26 @@ class PurchaseRepository(BaseRepository[Purchase]):
         
         await self.db.flush() # Sincronizar cambios antes de retornar
         return purchase
+    async def get_stats(self, tenant_id: int) -> dict:
+        """Calcula estadísticas generales de compras para el tenant"""
+        conditions = [Purchase.tenant_id == tenant_id]
+        
+        # 1. Totales por estado y montos
+        query = select(
+            func.count(Purchase.id).label("total_count"),
+            func.sum(Purchase.total_amount).label("total_amount"),
+            func.count(Purchase.id).filter(Purchase.status == PurchaseStatus.DRAFT).label("draft_count"),
+            func.count(Purchase.id).filter(Purchase.status == PurchaseStatus.RECEIVED).label("received_count"),
+            func.sum(Purchase.total_amount).filter(Purchase.status == PurchaseStatus.RECEIVED).label("received_amount")
+        ).where(Purchase.tenant_id == tenant_id)
+        
+        result = await self.db.execute(query)
+        row = result.fetchone()
+        
+        return {
+            "total_count": row.total_count or 0,
+            "total_amount": float(row.total_amount or 0),
+            "draft_count": row.draft_count or 0,
+            "received_count": row.received_count or 0,
+            "received_amount": float(row.received_amount or 0)
+        }

@@ -9,6 +9,15 @@ from ...repositories.adjustment_repo import AdjustmentRepository
 
 router = APIRouter()
 
+@router.get("/stats")
+async def get_adjustment_stats(
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene estadísticas de ajustes de inventario"""
+    repo = AdjustmentRepository(db)
+    return await repo.get_stats(current_user.tenant_id)
+
 @router.get("/", response_model=List[AdjustmentOut])
 async def get_adjustments(
     skip: int = 0,

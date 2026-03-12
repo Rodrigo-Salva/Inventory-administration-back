@@ -16,6 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models import Base, Tenant, User, Category, Supplier, Product
+from app.models.role import Role, Permission
+from app.models.user import UserRole
 from app.seeds.data.categories import CATEGORIES
 from app.seeds.data.suppliers import SUPPLIERS
 from app.seeds.data.products import PRODUCTS
@@ -179,6 +181,147 @@ async def create_suppliers(session: AsyncSession, tenant_id: int):
     return supplier_map
 
 
+async def create_roles_and_permissions(session: AsyncSession, tenant_id: int):
+    """Crea roles y permisos por defecto"""
+    print("\n🔐 Creando roles y permisos...")
+    
+    # 1. Definir permisos base
+    permissions_data = [
+        # Dashboard
+        {"name": "Ver Dashboard", "codename": "dashboard:view", "module": "admin"},
+
+        # Productos y Categorías
+        {"name": "Ver Productos", "codename": "products:view", "module": "inventory"},
+        {"name": "Crear Productos", "codename": "products:create", "module": "inventory"},
+        {"name": "Editar Productos", "codename": "products:edit", "module": "inventory"},
+        {"name": "Eliminar Productos", "codename": "products:delete", "module": "inventory"},
+        {"name": "Ver Categorías", "codename": "categories:view", "module": "inventory"},
+        
+        # Proveedores y Compras
+        {"name": "Ver Proveedores", "codename": "suppliers:view", "module": "inventory"},
+        {"name": "Ver Compras", "codename": "purchases:view", "module": "inventory"},
+        {"name": "Crear Compras", "codename": "purchases:create", "module": "inventory"},
+        {"name": "Gestionar Compras", "codename": "purchases:manage", "module": "inventory"},
+
+        # Lotes
+        {"name": "Ver Lotes", "codename": "batches:view", "module": "inventory"},
+        {"name": "Gestionar Lotes", "codename": "batches:manage", "module": "inventory"},
+        
+        # Inventario / Kardex / Ajustes
+        {"name": "Ver Inventario", "codename": "inventory:view", "module": "inventory"},
+        {"name": "Ver Ajustes", "codename": "adjustments:view", "module": "inventory"},
+        {"name": "Realizar Ajustes", "codename": "adjustments:create", "module": "inventory"},
+        {"name": "Ajustar Stock", "codename": "inventory:adjust", "module": "inventory"},
+        
+        # Gastos
+        {"name": "Ver Gastos", "codename": "expenses:view", "module": "finance"},
+        {"name": "Crear Gastos", "codename": "expenses:create", "module": "finance"},
+        {"name": "Gestionar Gastos", "codename": "expenses:manage", "module": "finance"},
+        {"name": "Exportar Gastos", "codename": "expenses:export", "module": "finance"},
+
+        # Cotizaciones
+        {"name": "Ver Cotizaciones", "codename": "quotes:view", "module": "sales"},
+        {"name": "Crear Cotizaciones", "codename": "quotes:create", "module": "sales"},
+        
+        # Ventas
+        {"name": "Ver Ventas", "codename": "sales:view", "module": "sales"},
+        {"name": "Realizar Ventas", "codename": "sales:create", "module": "sales"},
+        {"name": "Punto de Venta", "codename": "sales:pos", "module": "sales"},
+        
+        # Clientes
+        {"name": "Ver Clientes", "codename": "customers:view", "module": "sales"},
+        {"name": "Crear Clientes", "codename": "customers:create", "module": "sales"},
+
+        # Sucursales
+        {"name": "Ver Sucursales", "codename": "branches:view", "module": "admin"},
+        {"name": "Crear Sucursales", "codename": "branches:create", "module": "admin"},
+        {"name": "Editar Sucursales", "codename": "branches:edit", "module": "admin"},
+
+        # Roles y Usuarios
+        {"name": "Ver Usuarios", "codename": "users:view", "module": "admin"},
+        {"name": "Ver Roles", "codename": "roles:view", "module": "admin"},
+        {"name": "Gestionar Roles", "codename": "roles:manage", "module": "admin"},
+        {"name": "Configuración", "codename": "settings:manage", "module": "admin"},
+
+        # Reportes
+        {"name": "Ver Reportes", "codename": "reports:view", "module": "admin"},
+
+        # Traslados
+        {"name": "Ver Traslados", "codename": "transfers:view", "module": "inventory"},
+        {"name": "Crear Traslados", "codename": "transfers:create", "module": "inventory"},
+        {"name": "Gestionar Traslados", "codename": "transfers:manage", "module": "inventory"},
+    ]
+    
+    # Crear todos los permisos
+    from sqlalchemy import select
+    all_perms = {}
+    for p_data in permissions_data:
+        res = await session.execute(select(Permission).where(Permission.codename == p_data["codename"]))
+        perm = res.scalar_one_or_none()
+        if not perm:
+            perm = Permission(**p_data)
+            session.add(perm)
+            await session.flush()
+            print(f"  ✓ Permiso: {perm.codename}")
+        all_perms[p_data["codename"]] = perm
+    
+    # 2. Definir Roles y sus permisos
+    roles_config = {
+        "ADMIN": {
+            "description": "Administrador total del Tenant",
+            "is_system": True,
+            "permissions": list(all_perms.keys()) # Todos los permisos
+        },
+        "MANAGER": {
+            "description": "Gerente de Inventario y Ventas",
+            "is_system": False,
+            "permissions": [
+                "dashboard:view",
+                "products:view", "products:create", "products:edit",
+                "categories:view", "suppliers:view",
+                "purchases:view", "purchases:create", "purchases:manage",
+                "batches:view", "batches:manage",
+                "inventory:view", "inventory:adjust",
+                "adjustments:view", "adjustments:create",
+                "expenses:view", "expenses:create", "expenses:manage",
+                "quotes:view", "quotes:create",
+                "sales:view", "sales:pos", "sales:create",
+                "customers:view", "customers:create",
+                "transfers:view", "transfers:create", "transfers:manage",
+                "branches:view", "users:view"
+            ]
+        },
+        "SELLER": {
+            "description": "Vendedor / Punto de Venta",
+            "is_system": True,
+            "permissions": ["products:view", "batches:view", "inventory:view", "quotes:view", "quotes:create", "sales:pos"]
+        }
+    }
+    
+    # Crear Roles y asignar permisos
+    created_roles = {}
+    for role_name, config in roles_config.items():
+        res = await session.execute(select(Role).where(Role.tenant_id == tenant_id, Role.name == role_name))
+        role = res.scalar_one_or_none()
+        if not role:
+            role = Role(
+                tenant_id=tenant_id,
+                name=role_name,
+                description=config["description"],
+                is_system=config["is_system"]
+            )
+            session.add(role)
+            await session.flush()
+            print(f"  ✓ Rol creado: {role.name}")
+        
+        # Limpiar y re-asignar permisos para asegurar que están sincronizados
+        role.permissions = [all_perms[p_code] for p_code in config["permissions"]]
+        created_roles[role_name] = role
+        
+    await session.commit()
+    print("✅ Roles y permisos sincronizados")
+    return created_roles
+
 async def create_products(
     session: AsyncSession,
     tenant_id: int,
@@ -246,6 +389,16 @@ async def run_seeds(clean: bool = False):
             
             # Crear datos
             tenant_id = await create_tenant_and_user(session)
+            roles = await create_roles_and_permissions(session, tenant_id)
+            
+            # Asignar rol ADMIN al usuario demo
+            from sqlalchemy import select
+            res = await session.execute(select(User).where(User.email == "admin@demo.com"))
+            user = res.scalar_one()
+            user.role_id = roles["ADMIN"].id
+            user.role = UserRole.ADMIN
+            await session.commit()
+            
             category_map = await create_categories(session, tenant_id)
             supplier_map = await create_suppliers(session, tenant_id)
             await create_products(session, tenant_id, category_map, supplier_map)
