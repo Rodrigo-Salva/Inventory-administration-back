@@ -19,6 +19,16 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+@router.get("/stats")
+async def get_purchase_stats(
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene estadísticas generales de las compras"""
+    repo = PurchaseRepository(db)
+    return await repo.get_stats(tenant_id)
+
+
 @router.get("/", response_model=PaginatedResponse[PurchaseSummary])
 async def list_purchases(
     pagination: PaginationParams = Depends(),
