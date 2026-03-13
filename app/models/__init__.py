@@ -18,3 +18,5 @@ from .stock_transfer import StockTransfer, StockTransferItem, StockTransferStatu
 from .audit_log import AuditLog
 from .expense import Expense
 from .quote import Quote, QuoteItem, QuoteStatus
+from .cash_session import CashSession, CashSessionStatus
+from .expense import Expense, ExpenseCategory

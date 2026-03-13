@@ -1,47 +1,46 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import date as date_obj, datetime
+from typing import List, Optional
+from datetime import datetime
+from decimal import Decimal
 
-class ExpenseBase(BaseModel):
-    amount: float = Field(..., gt=0)
-    category: str = Field(..., min_length=1, max_length=50)
+class ExpenseCategoryBase(BaseModel):
+    name: str
     description: Optional[str] = None
-    date: date_obj
-    reference: Optional[str] = None
 
-class ExpenseCreate(ExpenseBase):
+class ExpenseCategoryCreate(ExpenseCategoryBase):
     pass
 
-class ExpenseUpdate(BaseModel):
-    amount: Optional[float] = Field(None, gt=0)
-    category: Optional[str] = Field(None, min_length=1, max_length=50)
-    description: Optional[str] = None
-    date: Optional[date_obj] = None
-    reference: Optional[str] = None
+class ExpenseCategoryResponse(ExpenseCategoryBase):
+    id: int
+    is_active: bool
+    created_at: datetime
 
-class ExpenseOut(ExpenseBase):
+    class Config:
+        from_attributes = True
+
+class ExpenseBase(BaseModel):
+    amount: Decimal = Field(..., gt=0)
+    description: str
+    category_id: Optional[int] = None
+    cash_session_id: Optional[int] = None
+    expense_date: Optional[datetime] = None
+
+class ExpenseCreate(ExpenseBase):
+    category_id: int
+
+class ExpenseResponse(ExpenseBase):
     id: int
     tenant_id: int
+    user_id: Optional[int] = None
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    
+    category: Optional[ExpenseCategoryResponse] = None
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        from_attributes = True
 
-class PaginatedExpenses(BaseModel):
-    items: List[ExpenseOut]
+class ExpenseSummary(BaseModel):
+    items: List[ExpenseResponse]
     total: int
     page: int
     size: int
-
-class TimeSeriesPoint(BaseModel):
-    date: str
-    amount: float
-
-class ExpenseStats(BaseModel):
-    category_totals: dict[str, float]
-    total_amount: float
-    daily_stats: List[TimeSeriesPoint] = []
-    weekly_stats: List[TimeSeriesPoint] = []
-    monthly_stats: List[TimeSeriesPoint] = []

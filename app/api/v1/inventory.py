@@ -87,8 +87,7 @@ async def remove_stock(
         quantity=request.quantity,
         tenant_id=current_user.tenant_id,
         reference=request.reference,
-        notes=request.notes,
-        allow_negative=request.allow_negative
+        notes=request.notes
     )
     
     return movement

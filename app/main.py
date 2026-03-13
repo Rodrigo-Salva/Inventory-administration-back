@@ -9,7 +9,7 @@ from .api.v1 import (
     users, tenant, reports, roles, sales, branches,
     customers, purchases, adjustments, audit,
     notifications, ai, expenses, quotes, product_batches,
-    stock_transfers, health
+    stock_transfers, health, pos
 )
 from .core.config import settings
 from .core.logging_config import setup_logging
@@ -83,9 +83,55 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tablas de ventas si no existen...")
         try:
-            from .models.sale import Sale, SaleItem
+            from .models.sale import Sale, SaleItem, CashSession
             from .models.purchase import Purchase, PurchaseItem
-            await conn.run_sync(Base.metadata.create_all, tables=[Sale.__table__, SaleItem.__table__, Purchase.__table__, PurchaseItem.__table__])
+            from .models.expense import Expense, ExpenseCategory
+            
+            # Crear categorías primero por la dependencia de FK
+            await conn.run_sync(Base.metadata.create_all, tables=[ExpenseCategory.__table__])
+            await conn.run_sync(Base.metadata.create_all, tables=[
+                Sale.__table__, 
+                SaleItem.__table__, 
+                Purchase.__table__, 
+                PurchaseItem.__table__,
+                CashSession.__table__,
+                Expense.__table__
+            ])
+            
+            # Migraciones manuales para Expenses (por si ya existía la tabla sin columnas)
+            try:
+                await conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)"))
+                await conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES expense_categories(id)"))
+                await conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS cash_session_id INTEGER REFERENCES cash_sessions(id)"))
+                
+                # Seeding de categorías por defecto para TODOS los tenants
+                tenants_res = await conn.execute(text("SELECT id FROM tenants"))
+                tenants_list = tenants_res.fetchall()
+                
+                default_categories = [
+                    ('Servicios Públicos', 'Pago de luz, agua, internet, etc.'),
+                    ('Arriendo', 'Pago de alquiler del local'),
+                    ('Suministros', 'Papelería, limpieza, etc.'),
+                    ('Pago a Proveedores', 'Pagos directos a proveedores de mercancía'),
+                    ('Otros', 'Gastos varios no clasificados')
+                ]
+
+                for t_row in tenants_list:
+                    tid = t_row[0]
+                    count_res = await conn.execute(
+                        text("SELECT count(*) FROM expense_categories WHERE tenant_id = :tid"), 
+                        {"tid": tid}
+                    )
+                    if count_res.scalar() == 0:
+                        logger.info(f"Sembrando categorías de gastos para tenant {tid}...")
+                        for name, desc in default_categories:
+                            await conn.execute(
+                                text("INSERT INTO expense_categories (tenant_id, name, description, is_active, created_at, updated_at) VALUES (:tid, :name, :desc, true, NOW(), NOW())"),
+                                {"tid": tid, "name": name, "desc": desc}
+                            )
+            except Exception as e:
+                logger.error(f"Error CRÍTICO en migración/seeding de expenses: {e}", exc_info=True)
+
             # Asegurar que existe la columna status si no se creó
             try:
                 await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'"))
@@ -118,6 +164,8 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all, tables=[Customer.__table__])
             # Asegurar campo customer_id en sales
             await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id)"))
+            # Asegurar campo cash_session_id en sales
+            await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS cash_session_id INTEGER REFERENCES cash_sessions(id)"))
             logger.info("Tabla de clientes verificada")
         except Exception as e:
             logger.error(f"Error creando tabla de clientes: {e}")
@@ -129,14 +177,6 @@ async def lifespan(app: FastAPI):
             logger.info("Tabla de ajustes verificada")
         except Exception as e:
             logger.error(f"Error creando tabla de ajustes: {e}")
-
-        logger.info("Creando tabla de gastos si no existe...")
-        try:
-            from .models.expense import Expense
-            await conn.run_sync(Base.metadata.create_all, tables=[Expense.__table__])
-            logger.info("Tabla de gastos verificada")
-        except Exception as e:
-            logger.error(f"Error creando tabla de gastos: {e}")
 
         logger.info("Creando tablas de traslados si no existen...")
         try:
@@ -256,6 +296,8 @@ async def lifespan(app: FastAPI):
             ("Crear Sucursales", "branches:create", "branches"),
             ("Editar Sucursales", "branches:edit", "branches"),
             ("Eliminar Sucursales", "branches:delete", "branches"),
+            ("Apertura/Cierre de Caja (POS)", "pos:manage", "pos"),
+            ("Realizar Ventas POS", "pos:sales", "pos"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -350,6 +392,7 @@ app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["expenses"]
 app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 app.include_router(product_batches.router, prefix="/api/v1/product-batches", tags=["product-batches"])
 app.include_router(stock_transfers.router, prefix="/api/v1/stock-transfers", tags=["stock-transfers"])
+app.include_router(pos.router, prefix="/api/v1/pos", tags=["pos"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)

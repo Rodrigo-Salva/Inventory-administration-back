@@ -127,8 +127,7 @@ class InventoryService(BaseService):
         tenant_id: int,
         user_id: Optional[int] = None,
         reference: Optional[str] = None,
-        notes: Optional[str] = None,
-        allow_negative: bool = False
+        notes: Optional[str] = None
     ) -> InventoryMovement:
         """
         Remueve stock de un producto
@@ -140,7 +139,6 @@ class InventoryService(BaseService):
             user_id: ID del usuario que realiza la operación
             reference: Referencia externa
             notes: Notas adicionales
-            allow_negative: Permitir stock negativo
         
         Returns:
             InventoryMovement creado
@@ -179,7 +177,7 @@ class InventoryService(BaseService):
             )
             self.db.add(product_branch)
         
-        if not allow_negative and product_branch.stock < quantity:
+        if product_branch.stock < quantity:
             raise InsufficientStockException(product.name, quantity, product_branch.stock)
         
         # Guardar stock anterior
