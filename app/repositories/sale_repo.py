@@ -11,15 +11,21 @@ from decimal import Decimal
 from datetime import datetime
 from typing import List, Optional
 from ..core.pagination import PaginationParams
+from .credit_repo import CreditRepository
+from ..models.loyalty import LoyaltyConfig, LoyaltyTransaction
+from ..models.customer import Customer
+from ..models.sale import PaymentMethod
 
 class SaleRepository(BaseRepository[Sale]):
     def __init__(self, db: AsyncSession):
         super().__init__(Sale, db)
 
     async def get_by_id(self, id: int, tenant_id: Optional[int] = None) -> Optional[Sale]:
-        """Obtiene una venta con sus items y productos cargados"""
+        """Obtiene una venta con sus items, productos, cliente y usuario cargados"""
         query = select(Sale).options(
-            joinedload(Sale.items).joinedload(SaleItem.product)
+            joinedload(Sale.items).joinedload(SaleItem.product),
+            joinedload(Sale.customer),
+            joinedload(Sale.user)
         ).where(Sale.id == id)
         
         if tenant_id is not None:
@@ -108,9 +114,106 @@ class SaleRepository(BaseRepository[Sale]):
             )
             self.db.add(movement)
 
-        # 7. Actualizar total de la venta
+        # 7. Gestionar Redención de Puntos (Antes de calcular total final)
+        discount_amount = Decimal(0)
+        if sale_data.redeemed_points and sale_data.redeemed_points > 0 and sale_data.customer_id:
+            # Obtener configuración y validar puntos del cliente
+            cust_res = await self.db.execute(select(Customer).where(Customer.id == sale_data.customer_id))
+            customer = cust_res.scalar_one_or_none()
+            
+            if not customer or customer.loyalty_points < sale_data.redeemed_points:
+                raise Exception("El cliente no tiene puntos suficientes para redimir.")
+            
+            loyalty_res = await self.db.execute(
+                select(LoyaltyConfig).where(LoyaltyConfig.tenant_id == tenant_id, LoyaltyConfig.is_active == True)
+            )
+            loyalty_config = loyalty_res.scalar_one_or_none()
+            
+            if not loyalty_config or sale_data.redeemed_points < loyalty_config.min_redemption_points:
+                raise Exception(f"No se cumple el mínimo de puntos para redención ({loyalty_config.min_redemption_points if loyalty_config else 0}).")
+            
+            # Calcular monto de descuento
+            discount_amount = Decimal(str(sale_data.redeemed_points)) * loyalty_config.amount_per_point
+            
+            # Asegurar que el descuento no supere el total
+            if discount_amount > total_amount:
+                discount_amount = total_amount
+                # Ajustar puntos redimidos si el descuento superó el total
+                # (Opcional: podrías preferir lanzar error si prefieres control estricto)
+            
+            # Aplicar descuento al total de la venta
+            total_amount -= discount_amount
+            
+            # Actualizar puntos del cliente (restar)
+            customer.loyalty_points -= sale_data.redeemed_points
+            
+            # Registrar transacción de redención
+            redemption_trans = LoyaltyTransaction(
+                tenant_id=tenant_id,
+                customer_id=customer.id,
+                sale_id=new_sale.id,
+                points=-sale_data.redeemed_points,
+                description=f"Puntos redimidos en venta #{new_sale.id}",
+                transaction_type="redeem"
+            )
+            self.db.add(redemption_trans)
+            
+            # Guardar datos en la venta
+            new_sale.redeemed_points = sale_data.redeemed_points
+            new_sale.points_discount_amount = discount_amount
+
+        # 8. Actualizar total de la venta
         new_sale.total_amount = total_amount
+        new_sale.customer_id = sale_data.customer_id # Asegurar que el customer_id se asigne
         self.db.add_all(sale_items)
+        
+        # 8. Gestionar Crédito si el método de pago es CRÉDITO
+        if sale_data.payment_method == PaymentMethod.CREDIT:
+            if not sale_data.customer_id:
+                raise Exception("Debe seleccionar un cliente para ventas a crédito.")
+                
+            credit_repo = CreditRepository(self.db)
+            # Verificar disponibilidad
+            if not await credit_repo.check_credit_availability(tenant_id, sale_data.customer_id, total_amount):
+                raise Exception("El cliente no tiene cupo de crédito suficiente.")
+            
+            # Crear crédito
+            await credit_repo.create_from_sale(
+                tenant_id=tenant_id,
+                customer_id=sale_data.customer_id,
+                sale_id=new_sale.id,
+                total_amount=total_amount
+            )
+        
+        # 9. Gestionar Programa de Lealtad (Acumulación de puntos)
+        if sale_data.customer_id:
+            # Obtener configuración de lealtad
+            loyalty_res = await self.db.execute(
+                select(LoyaltyConfig).where(LoyaltyConfig.tenant_id == tenant_id, LoyaltyConfig.is_active == True)
+            )
+            loyalty_config = loyalty_res.scalar_one_or_none()
+            
+            if loyalty_config and loyalty_config.points_per_amount > 0:
+                # Calcular puntos a ganar (ej: 1 punto por cada $100)
+                points_to_earn = int(total_amount / loyalty_config.points_per_amount)
+                
+                if points_to_earn > 0:
+                    # Actualizar puntos del cliente
+                    cust_res = await self.db.execute(select(Customer).where(Customer.id == sale_data.customer_id))
+                    customer = cust_res.scalar_one_or_none()
+                    if customer:
+                        customer.loyalty_points += points_to_earn
+                        
+                        # Registrar transacción
+                        loyalty_trans = LoyaltyTransaction(
+                            tenant_id=tenant_id,
+                            customer_id=customer.id,
+                            sale_id=new_sale.id,
+                            points=points_to_earn,
+                            description=f"Puntos ganados por venta #{new_sale.id}",
+                            transaction_type="earn"
+                        )
+                        self.db.add(loyalty_trans)
         
         await self.db.commit()
         
@@ -149,6 +252,74 @@ class SaleRepository(BaseRepository[Sale]):
 
         # 2. Marcar venta como anulada
         sale.status = "annulled"
+
+        # 3. Anular crédito asociado si existe
+        from ..models.credit import Credit, CreditStatus
+        credit_query = select(Credit).where(
+            and_(Credit.sale_id == sale_id, Credit.tenant_id == tenant_id)
+        )
+        res_credit = await self.db.execute(credit_query)
+        credit = res_credit.scalar_one_or_none()
+        
+        if credit and credit.status != CreditStatus.ANNULLED:
+            # Revertir saldo en el cliente
+            from ..models.customer import Customer
+            cust_query = select(Customer).where(Customer.id == credit.customer_id)
+            res_cust = await self.db.execute(cust_query)
+            customer = res_cust.scalar_one()
+            customer.current_balance -= credit.remaining_amount
+            
+            credit.status = CreditStatus.ANNULLED
+        
+        # 4. Revertir puntos de lealtad si se otorgaron
+        loyalty_trans_query = select(LoyaltyTransaction).where(
+            and_(LoyaltyTransaction.sale_id == sale_id, LoyaltyTransaction.transaction_type == "earn")
+        )
+        res_loyalty = await self.db.execute(loyalty_trans_query)
+        loyalty_trans = res_loyalty.scalar_one_or_none()
+        
+        if loyalty_trans:
+            # Descontar puntos al cliente
+            cust_res = await self.db.execute(select(Customer).where(Customer.id == loyalty_trans.customer_id))
+            customer = cust_res.scalar_one_or_none()
+            if customer:
+                customer.loyalty_points -= loyalty_trans.points
+                
+                # Registrar reversión
+                reversion = LoyaltyTransaction(
+                    tenant_id=tenant_id,
+                    customer_id=customer.id,
+                    sale_id=sale_id,
+                    points=-loyalty_trans.points,
+                    description=f"Puntos revertidos por anulación de venta #{sale_id}",
+                    transaction_type="adjust"
+                )
+                self.db.add(reversion)
+        
+        # 5. Revertir puntos de lealtad REDIMIDOS si existen
+        loyalty_redeem_query = select(LoyaltyTransaction).where(
+            and_(LoyaltyTransaction.sale_id == sale_id, LoyaltyTransaction.transaction_type == "redeem")
+        )
+        res_redeem = await self.db.execute(loyalty_redeem_query)
+        redeem_trans = res_redeem.scalar_one_or_none()
+        
+        if redeem_trans:
+            # Re-sumar puntos al cliente
+            cust_res = await self.db.execute(select(Customer).where(Customer.id == redeem_trans.customer_id))
+            customer = cust_res.scalar_one_or_none()
+            if customer:
+                customer.loyalty_points += abs(redeem_trans.points)
+                
+                # Registrar reversión de redención
+                reversion_red = LoyaltyTransaction(
+                    tenant_id=tenant_id,
+                    customer_id=customer.id,
+                    sale_id=sale_id,
+                    points=abs(redeem_trans.points),
+                    description=f"Puntos devueltos por anulación de venta #{sale_id}",
+                    transaction_type="adjust"
+                )
+                self.db.add(reversion_red)
         
         await self.db.commit()
         await self.db.refresh(sale)
@@ -167,6 +338,7 @@ class SaleRepository(BaseRepository[Sale]):
     ) -> tuple[List[Sale], int]:
         query = select(Sale).options(
             selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.customer),
             selectinload(Sale.user)
         ).where(Sale.tenant_id == tenant_id)
 

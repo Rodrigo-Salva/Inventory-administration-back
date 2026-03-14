@@ -9,7 +9,7 @@ from .api.v1 import (
     users, tenant, reports, roles, sales, branches,
     customers, purchases, adjustments, audit,
     notifications, ai, expenses, quotes, product_batches,
-    stock_transfers, health, pos
+    stock_transfers, health, pos, credits, loyalty
 )
 from .core.config import settings
 from .core.logging_config import setup_logging
@@ -97,6 +97,25 @@ async def lifespan(app: FastAPI):
                 CashSession.__table__,
                 Expense.__table__
             ])
+
+            # Migraciones y creación de tablas para Créditos y Lealtad
+            from .models.credit import Credit
+            from .models.payment import Payment
+            from .models.loyalty import LoyaltyConfig, LoyaltyTransaction
+            await conn.run_sync(Base.metadata.create_all, tables=[
+                Credit.__table__, 
+                Payment.__table__,
+                LoyaltyConfig.__table__,
+                LoyaltyTransaction.__table__
+            ])
+            
+            try:
+                await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit NUMERIC(12, 2) DEFAULT 0"))
+                await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS current_balance NUMERIC(12, 2) DEFAULT 0"))
+                await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER DEFAULT 0"))
+                logger.info("Columnas de crédito y lealtad agregadas a customers")
+            except Exception as e:
+                logger.error(f"Error migrando customers para crédito: {e}")
             
             # Migraciones manuales para Expenses (por si ya existía la tabla sin columnas)
             try:
@@ -135,6 +154,8 @@ async def lifespan(app: FastAPI):
             # Asegurar que existe la columna status si no se creó
             try:
                 await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'"))
+                await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS redeemed_points INTEGER DEFAULT 0"))
+                await conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS points_discount_amount NUMERIC(12, 2) DEFAULT 0"))
             except Exception: pass
             
             # Migración Purchase
@@ -298,6 +319,10 @@ async def lifespan(app: FastAPI):
             ("Eliminar Sucursales", "branches:delete", "branches"),
             ("Apertura/Cierre de Caja (POS)", "pos:manage", "pos"),
             ("Realizar Ventas POS", "pos:sales", "pos"),
+            ("Ver Créditos", "credits:view", "sales"),
+            ("Gestionar Créditos", "credits:manage", "sales"),
+            ("Ver Pagos de Crédito", "payments:view", "sales"),
+            ("Registrar Pagos de Crédito", "payments:create", "sales"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -393,6 +418,8 @@ app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 app.include_router(product_batches.router, prefix="/api/v1/product-batches", tags=["product-batches"])
 app.include_router(stock_transfers.router, prefix="/api/v1/stock-transfers", tags=["stock-transfers"])
 app.include_router(pos.router, prefix="/api/v1/pos", tags=["pos"])
+app.include_router(credits.router, prefix="/api/v1/credits", tags=["credits"])
+app.include_router(loyalty.router, prefix="/api/v1/loyalty", tags=["loyalty"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)
