@@ -9,6 +9,8 @@ from .customer_repo import CustomerRepository
 from .purchase_repo import PurchaseRepository
 from .sale_repo import SaleRepository
 from .quote_repo import QuoteRepository
+from .credit_repo import CreditRepository
+from .payment_repo import PaymentRepository
 
 # Mantener UserRepository si existe
 try:
@@ -29,4 +31,6 @@ __all__ = [
     "PurchaseRepository",
     "SaleRepository",
     "QuoteRepository",
+    "CreditRepository",
+    "PaymentRepository",
 ]
