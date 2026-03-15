@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from ...models import get_db
-from ...dependencies import get_current_tenant, get_current_user, require_role
+from ...dependencies import get_current_tenant, get_current_user, require_role, require_permission
 from ...schemas.sale import SaleCreate, SaleResponse, PaginatedSaleResponse
 from ...repositories.sale_repo import SaleRepository
 from ...repositories.tenant_repo import TenantRepository
@@ -112,3 +112,14 @@ async def annul_sale(
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
     return sale
+
+@router.get("/{sale_id}/picking-list")
+async def get_picking_list(
+    sale_id: int,
+    current_user: User = Depends(require_permission("sales:picking")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene la lista de surtido (picking) optimizada por ubicación"""
+    from ...services.picking_service import PickingService
+    service = PickingService(db)
+    return await service.get_picking_list(sale_id, tenant_id)
