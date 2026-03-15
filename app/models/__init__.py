@@ -8,6 +8,7 @@ from .product import Product
 from .product_batch import ProductBatch
 from .product_branch import ProductBranch
 from .inventory_movement import InventoryMovement, MovementType
+from .inventory_audit import InventoryAudit, InventoryAuditItem, AuditStatus
 from .adjustment import InventoryAdjustment, AdjustmentReason
 from .purchase import Purchase, PurchaseItem, PurchaseStatus, PurchasePaymentStatus
 from .sale import Sale, SaleItem, SaleStatus, PaymentMethod

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, Index, Numeric
+from sqlalchemy import Column, Integer, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin
 
@@ -17,6 +17,11 @@ class ProductBranch(Base, TimestampMixin):
     stock = Column(Integer, default=0, nullable=False)
     min_stock = Column(Integer, default=10, nullable=False)
     max_stock = Column(Integer, nullable=True)
+    
+    # Ubicación física (WMS Lite)
+    aisle = Column(String(50), nullable=True)
+    shelf = Column(String(50), nullable=True)
+    bin = Column(String(50), nullable=True)
     
     # Precio variable por sucursal (opcional)
     price = Column(Numeric(10, 2), nullable=True) # Si es nulo, usa el principal

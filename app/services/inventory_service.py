@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from .base_service import BaseService
@@ -32,7 +32,10 @@ class InventoryService(BaseService):
         user_id: Optional[int] = None,
         unit_cost: Optional[Decimal] = None,
         reference: Optional[str] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        aisle: Optional[str] = None,
+        shelf: Optional[str] = None,
+        bin: Optional[str] = None
     ) -> InventoryMovement:
         """
         Agrega stock a un producto
@@ -45,6 +48,9 @@ class InventoryService(BaseService):
             unit_cost: Costo unitario del producto
             reference: Referencia externa (factura, orden de compra, etc.)
             notes: Notas adicionales
+            aisle: Pasillo
+            shelf: Estante
+            bin: Gaveta
         
         Returns:
             InventoryMovement creado
@@ -78,10 +84,17 @@ class InventoryService(BaseService):
                 branch_id=branch_id,
                 stock=0,
                 min_stock=product.min_stock,
-                max_stock=product.max_stock
+                max_stock=product.max_stock,
+                aisle=aisle,
+                shelf=shelf,
+                bin=bin
             )
             self.db.add(product_branch)
-            # Flush for ID if needed, but not strictly necessary here
+        else:
+            # Actualizar ubicación si se proporciona
+            if aisle is not None: product_branch.aisle = aisle
+            if shelf is not None: product_branch.shelf = shelf
+            if bin is not None: product_branch.bin = bin
             
         # Guardar stock anterior
         stock_before = product_branch.stock
@@ -127,7 +140,10 @@ class InventoryService(BaseService):
         tenant_id: int,
         user_id: Optional[int] = None,
         reference: Optional[str] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        aisle: Optional[str] = None,
+        shelf: Optional[str] = None,
+        bin: Optional[str] = None
     ) -> InventoryMovement:
         """
         Remueve stock de un producto
@@ -139,6 +155,9 @@ class InventoryService(BaseService):
             user_id: ID del usuario que realiza la operación
             reference: Referencia externa
             notes: Notas adicionales
+            aisle: Pasillo
+            shelf: Estante
+            bin: Gaveta
         
         Returns:
             InventoryMovement creado
@@ -167,15 +186,23 @@ class InventoryService(BaseService):
         product_branch = result.scalar_one_or_none()
 
         if not product_branch:
-            # Crear la asignación a la sucursal automáticamente
+             # Crear la asignación a la sucursal automáticamente
             product_branch = ProductBranch(
                 product_id=product_id,
                 branch_id=branch_id,
                 stock=0,
                 min_stock=product.min_stock,
-                max_stock=product.max_stock
+                max_stock=product.max_stock,
+                aisle=aisle,
+                shelf=shelf,
+                bin=bin
             )
             self.db.add(product_branch)
+        else:
+            # Actualizar ubicación si se proporciona
+            if aisle is not None: product_branch.aisle = aisle
+            if shelf is not None: product_branch.shelf = shelf
+            if bin is not None: product_branch.bin = bin
         
         if product_branch.stock < quantity:
             raise InsufficientStockException(product.name, quantity, product_branch.stock)

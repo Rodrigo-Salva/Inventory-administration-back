@@ -32,11 +32,17 @@ class ProductBranchBase(BaseModel):
     stock: int = 0
     min_stock: int = 10
     max_stock: Optional[int] = None
+    aisle: Optional[str] = Field(None, max_length=50)
+    shelf: Optional[str] = Field(None, max_length=50)
+    bin: Optional[str] = Field(None, max_length=50)
 
 class ProductBranchUpdate(BaseModel):
     stock: Optional[int] = None
     min_stock: Optional[int] = None
     max_stock: Optional[int] = None
+    aisle: Optional[str] = Field(None, max_length=50)
+    shelf: Optional[str] = Field(None, max_length=50)
+    bin: Optional[str] = Field(None, max_length=50)
 
 class ProductBranchResponse(ProductBranchBase):
     id: int

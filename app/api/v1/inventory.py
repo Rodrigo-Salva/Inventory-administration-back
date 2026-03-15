@@ -66,7 +66,10 @@ async def add_stock(
         tenant_id=current_user.tenant_id,
         unit_cost=request.unit_cost,
         reference=request.reference,
-        notes=request.notes
+        notes=request.notes,
+        aisle=request.aisle,
+        shelf=request.shelf,
+        bin=request.bin
     )
     
     return movement
@@ -87,7 +90,10 @@ async def remove_stock(
         quantity=request.quantity,
         tenant_id=current_user.tenant_id,
         reference=request.reference,
-        notes=request.notes
+        notes=request.notes,
+        aisle=request.aisle,
+        shelf=request.shelf,
+        bin=request.bin
     )
     
     return movement

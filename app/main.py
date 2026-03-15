@@ -9,7 +9,8 @@ from .api.v1 import (
     users, tenant, reports, roles, sales, branches,
     customers, purchases, adjustments, audit,
     notifications, ai, expenses, quotes, product_batches,
-    stock_transfers, health, pos, credits, loyalty
+    stock_transfers, health, pos, credits, loyalty, barcodes,
+    inventory_audits
 )
 from .core.config import settings
 from .core.logging_config import setup_logging
@@ -207,6 +208,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error creando tablas de traslados: {e}")
 
+        logger.info("Creando tablas de auditoría de inventario...")
+        try:
+            from .models.inventory_audit import InventoryAudit, InventoryAuditItem
+            await conn.run_sync(Base.metadata.create_all, tables=[InventoryAudit.__table__, InventoryAuditItem.__table__])
+            logger.info("Tablas de auditoría verificadas")
+        except Exception as e:
+            logger.error(f"Error creando tablas de auditoría: {e}")
+
         # 1. Crear tablas de Roles y Permisos (Separado para mayor compatibilidad)
         try:
             await conn.execute(text("""
@@ -262,6 +271,11 @@ async def lifespan(app: FastAPI):
             logger.info("Migración a ProductBranch completada")
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id)"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id)"))
+            
+            # Migración: Ubicaciones en product_branches
+            await conn.execute(text("ALTER TABLE product_branches ADD COLUMN IF NOT EXISTS aisle VARCHAR(50)"))
+            await conn.execute(text("ALTER TABLE product_branches ADD COLUMN IF NOT EXISTS shelf VARCHAR(50)"))
+            await conn.execute(text("ALTER TABLE product_branches ADD COLUMN IF NOT EXISTS bin VARCHAR(50)"))
         except Exception as e:
             logger.error(f"Error creando tablas de roles/branch users: {e}")
             # Intentar solo la columna por si las tablas ya existían pero la columna no
@@ -323,6 +337,8 @@ async def lifespan(app: FastAPI):
             ("Gestionar Créditos", "credits:manage", "sales"),
             ("Ver Pagos de Crédito", "payments:view", "sales"),
             ("Registrar Pagos de Crédito", "payments:create", "sales"),
+            ("Generar Barcodes", "barcodes:generate", "inventory"),
+            ("Escanear Barcodes", "barcodes:scan", "inventory"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -420,6 +436,8 @@ app.include_router(stock_transfers.router, prefix="/api/v1/stock-transfers", tag
 app.include_router(pos.router, prefix="/api/v1/pos", tags=["pos"])
 app.include_router(credits.router, prefix="/api/v1/credits", tags=["credits"])
 app.include_router(loyalty.router, prefix="/api/v1/loyalty", tags=["loyalty"])
+app.include_router(barcodes.router, prefix="/api/v1/barcodes", tags=["barcodes"])
+app.include_router(inventory_audits.router, prefix="/api/v1/inventory-audits", tags=["inventory-audits"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)

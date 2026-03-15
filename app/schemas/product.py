@@ -168,6 +168,9 @@ class AddStockRequest(BaseModel):
     unit_cost: Optional[Decimal] = Field(None, ge=0)
     reference: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
+    aisle: Optional[str] = Field(None, max_length=50)
+    shelf: Optional[str] = Field(None, max_length=50)
+    bin: Optional[str] = Field(None, max_length=50)
 
 
 class RemoveStockRequest(BaseModel):
@@ -177,6 +180,9 @@ class RemoveStockRequest(BaseModel):
     quantity: int = Field(..., gt=0)
     reference: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
+    aisle: Optional[str] = Field(None, max_length=50)
+    shelf: Optional[str] = Field(None, max_length=50)
+    bin: Optional[str] = Field(None, max_length=50)
 
 
 class AdjustStockRequest(BaseModel):
