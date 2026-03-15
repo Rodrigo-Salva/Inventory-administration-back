@@ -262,6 +262,15 @@ async def create_roles_and_permissions(session: AsyncSession, tenant_id: int):
         {"name": "Gestionar Crditos", "codename": "credits:manage", "module": "sales"},
         {"name": "Ver Pagos de Crdito", "codename": "payments:view", "module": "sales"},
         {"name": "Registrar Pagos de Crdito", "codename": "payments:create", "module": "sales"},
+        
+        # Barcodes & QR
+        {"name": "Generar Barcodes", "codename": "barcodes:generate", "module": "inventory"},
+        {"name": "Imprimir Etiquetas", "codename": "barcodes:print", "module": "inventory"},
+        {"name": "Escanear Barcodes", "codename": "barcodes:scan", "module": "inventory"},
+
+        # WMS Enhancements
+        {"name": "Gestionar Auditorías", "codename": "inventory:audits", "module": "inventory"},
+        {"name": "Ver Lista Picking", "codename": "sales:picking", "module": "sales"},
     ]
     
     # Crear todos los permisos
@@ -302,7 +311,9 @@ async def create_roles_and_permissions(session: AsyncSession, tenant_id: int):
                 "transfers:view", "transfers:create", "transfers:manage",
                 "branches:view", "users:view",
                 "credits:view", "credits:manage", "payments:view", "payments:create",
-                "loyalty:config_view", "loyalty:config_edit", "loyalty:history_view", "loyalty:adjust"
+                "loyalty:config_view", "loyalty:config_edit", "loyalty:history_view", "loyalty:adjust",
+                "barcodes:generate", "barcodes:print", "barcodes:scan",
+                "inventory:audits", "sales:picking"
             ]
         },
         "SELLER": {
