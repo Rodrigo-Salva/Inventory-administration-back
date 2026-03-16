@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import BackgroundTasks
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import joinedload, selectinload
 from .base_repository import BaseRepository
@@ -15,10 +16,12 @@ from .credit_repo import CreditRepository
 from ..models.loyalty import LoyaltyConfig, LoyaltyTransaction
 from ..models.customer import Customer
 from ..models.sale import PaymentMethod
+from ..services.stock_alert_service import StockAlertService
 
 class SaleRepository(BaseRepository[Sale]):
     def __init__(self, db: AsyncSession):
         super().__init__(Sale, db)
+        self.alert_service = StockAlertService(db)
 
     async def get_by_id(self, id: int, tenant_id: Optional[int] = None) -> Optional[Sale]:
         """Obtiene una venta con sus items, productos, cliente y usuario cargados"""
@@ -34,7 +37,7 @@ class SaleRepository(BaseRepository[Sale]):
         result = await self.db.execute(query)
         return result.unique().scalar_one_or_none()
 
-    async def create_sale(self, tenant_id: int, user_id: int, sale_data) -> Sale:
+    async def create_sale(self, tenant_id: int, user_id: int, sale_data, background_tasks: Optional[BackgroundTasks] = None) -> Sale:
         """
         Crea una venta, actualiza el stock y registra los movimientos de inventario.
         Todo se ejecuta dentro de la misma transacción.
@@ -113,6 +116,9 @@ class SaleRepository(BaseRepository[Sale]):
                 notes=f"Venta realizada por el POS"
             )
             self.db.add(movement)
+            
+            # Verificar alertas de stock
+            await self.alert_service.check_and_trigger_alerts(product, tenant_id, background_tasks)
 
         # 7. Gestionar Redención de Puntos (Antes de calcular total final)
         discount_amount = Decimal(0)
@@ -220,7 +226,7 @@ class SaleRepository(BaseRepository[Sale]):
         # Retornar la venta con todas sus relaciones cargadas usando el nuevo get_by_id
         return await self.get_by_id(new_sale.id, tenant_id)
 
-    async def annul_sale(self, sale_id: int, tenant_id: int, user_id: int) -> Sale:
+    async def annul_sale(self, sale_id: int, tenant_id: int, user_id: int, background_tasks: Optional[BackgroundTasks] = None) -> Sale:
         """Enula una venta, revierte el stock y registra los ajustes"""
         sale = await self.get_by_id(sale_id, tenant_id)
         if not sale:
@@ -249,6 +255,9 @@ class SaleRepository(BaseRepository[Sale]):
                 notes=f"Anulación de venta realizada"
             )
             self.db.add(adjustment)
+            
+            # Resolver alertas si el stock ahora es suficiente
+            await self.alert_service.resolve_alerts_if_needed(product, tenant_id)
 
         # 2. Marcar venta como anulada
         sale.status = "annulled"

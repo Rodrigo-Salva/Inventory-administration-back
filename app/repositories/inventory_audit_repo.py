@@ -10,7 +10,10 @@ class InventoryAuditRepository(BaseRepository[InventoryAudit]):
         super().__init__(InventoryAudit, db)
 
     async def get_by_branch(self, branch_id: int, tenant_id: int) -> List[InventoryAudit]:
-        query = select(InventoryAudit).where(
+        from sqlalchemy.orm import selectinload
+        query = select(InventoryAudit).options(
+            selectinload(InventoryAudit.items).selectinload(InventoryAuditItem.product)
+        ).where(
             and_(
                 InventoryAudit.branch_id == branch_id,
                 InventoryAudit.tenant_id == tenant_id
@@ -39,9 +42,10 @@ class InventoryAuditRepository(BaseRepository[InventoryAudit]):
         return item
 
     async def get_recent(self, tenant_id: int, limit: int = 20) -> List[InventoryAudit]:
-        from sqlalchemy.orm import joinedload
+        from sqlalchemy.orm import joinedload, selectinload
         query = select(InventoryAudit).options(
-            joinedload(InventoryAudit.branch)
+            joinedload(InventoryAudit.branch),
+            selectinload(InventoryAudit.items).selectinload(InventoryAuditItem.product)
         ).where(
             InventoryAudit.tenant_id == tenant_id
         ).order_by(InventoryAudit.created_at.desc()).limit(limit)

@@ -14,6 +14,7 @@ class TenantBase(BaseModel):
     state: Optional[str] = None
     country: Optional[str] = None
     logo_url: Optional[str] = None
+    monthly_sales_goal: float = 0.0
 
 class TenantUpdate(BaseModel):
     name: Optional[str] = None
@@ -26,6 +27,7 @@ class TenantUpdate(BaseModel):
     state: Optional[str] = None
     country: Optional[str] = None
     logo_url: Optional[str] = None
+    monthly_sales_goal: Optional[float] = None
 
 class TenantOut(TenantBase):
     id: int

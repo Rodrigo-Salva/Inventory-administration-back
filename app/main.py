@@ -10,7 +10,7 @@ from .api.v1 import (
     customers, purchases, adjustments, audit,
     notifications, ai, expenses, quotes, product_batches,
     stock_transfers, health, pos, credits, loyalty, barcodes,
-    inventory_audits
+    inventory_audits, webhooks, payments
 )
 from .core.config import settings
 from .core.logging_config import setup_logging
@@ -20,11 +20,23 @@ from .core.context_middleware import ContextMiddleware
 from .core.audit_listener import setup_audit_listeners
 from .models.base import Base
 import logging
+import sentry_sdk
+from prometheus_fastapi_instrumentator import Instrumentator
 
 
 # Configurar logging
 setup_logging(settings.log_level, settings.environment)
 logger = logging.getLogger(__name__)
+
+# Configurar Sentry
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+    logger.info("Sentry instrumentado correctamente")
 
 
 @asynccontextmanager
@@ -109,6 +121,14 @@ async def lifespan(app: FastAPI):
                 LoyaltyConfig.__table__,
                 LoyaltyTransaction.__table__
             ])
+            
+            # Crear tabla de Webhooks
+            try:
+                from .models.webhook import Webhook
+                await conn.run_sync(Base.metadata.create_all, tables=[Webhook.__table__])
+                logger.info("✅ Tabla de webhooks verificada exitosamente")
+            except Exception as e:
+                logger.error(f"❌ Error creando tabla de webhooks: {e}")
             
             try:
                 await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit NUMERIC(12, 2) DEFAULT 0"))
@@ -339,6 +359,9 @@ async def lifespan(app: FastAPI):
             ("Registrar Pagos de Crédito", "payments:create", "sales"),
             ("Generar Barcodes", "barcodes:generate", "inventory"),
             ("Escanear Barcodes", "barcodes:scan", "inventory"),
+            ("Ver Webhooks API", "webhooks:view", "webhooks"),
+            ("Configurar Webhooks API", "webhooks:manage", "webhooks"),
+            ("Gestionar Suscripción SaaS", "subscriptions:manage", "settings"),
         ]
         
         for name, codename, module in permissions_seed:
@@ -438,10 +461,17 @@ app.include_router(credits.router, prefix="/api/v1/credits", tags=["credits"])
 app.include_router(loyalty.router, prefix="/api/v1/loyalty", tags=["loyalty"])
 app.include_router(barcodes.router, prefix="/api/v1/barcodes", tags=["barcodes"])
 app.include_router(inventory_audits.router, prefix="/api/v1/inventory-audits", tags=["inventory-audits"])
+app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["webhooks"])
+app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Instrumentación de Prometheus
+if settings.prometheus_enabled:
+    Instrumentator().instrument(app).expose(app)
+    logger.info("Prometheus instrumentado correctamente en /metrics")
 
 
 @app.get("/")

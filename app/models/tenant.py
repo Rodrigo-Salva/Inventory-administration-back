@@ -19,6 +19,7 @@ class Tenant(Base):
     country = Column(String(100), nullable=True)
     logo_url = Column(String(255), nullable=True)
     plan = Column(String(20), default="free")  # free, pro, enterprise
+    monthly_sales_goal = Column(expression.Float, default=0.0)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

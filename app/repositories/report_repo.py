@@ -43,13 +43,20 @@ class ReportRepository:
         entries = sum(row.count for row in m_rows if row.movement_type in [MovementType.ENTRY, MovementType.INITIAL])
         exits = sum(row.count for row in m_rows if row.movement_type == MovementType.EXIT)
 
+        # 3. Meta de ventas del Tenant
+        from ..models.tenant import Tenant
+        tenant_query = select(Tenant.monthly_sales_goal).where(Tenant.id == tenant_id)
+        tenant_result = await self.db.execute(tenant_query)
+        tenant_goal = tenant_result.scalar_one_or_none() or 0.0
+
         return {
             "total_products": p_stats.total or 0,
             "low_stock_count": p_stats.low_stock or 0,
             "active_products": p_stats.active or 0,
             "total_inventory_value": float(p_stats.inventory_value or 0),
             "entries_count": entries,
-            "exits_count": exits
+            "exits_count": exits,
+            "monthly_sales_goal": float(tenant_goal)
         }
 
     async def get_movement_trends(self, tenant_id: int, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:

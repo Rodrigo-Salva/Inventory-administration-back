@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import get_db
 from ...dependencies import get_current_tenant, get_current_user, require_role, require_permission
@@ -78,6 +78,7 @@ async def add_stock(
 @router.post("/remove-stock", response_model=InventoryMovementOut)
 async def remove_stock(
     request: RemoveStockRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("inventory:adjust")),
     db: AsyncSession = Depends(get_db)
 ):
@@ -93,7 +94,8 @@ async def remove_stock(
         notes=request.notes,
         aisle=request.aisle,
         shelf=request.shelf,
-        bin=request.bin
+        bin=request.bin,
+        background_tasks=background_tasks
     )
     
     return movement
@@ -102,6 +104,7 @@ async def remove_stock(
 @router.post("/adjust-stock", response_model=InventoryMovementOut)
 async def adjust_stock(
     request: AdjustStockRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("inventory:adjust")),
     db: AsyncSession = Depends(get_db)
 ):
@@ -113,7 +116,8 @@ async def adjust_stock(
         branch_id=request.branch_id,
         new_stock=request.new_stock,
         tenant_id=current_user.tenant_id,
-        reason=request.reason
+        reason=request.reason,
+        background_tasks=background_tasks
     )
     
     return movement

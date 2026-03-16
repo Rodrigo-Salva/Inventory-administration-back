@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
@@ -18,6 +18,7 @@ router = APIRouter(tags=["Sales"])
 @router.post("/", response_model=SaleResponse)
 async def create_sale(
     sale_in: SaleCreate,
+    background_tasks: BackgroundTasks,
     tenant_id: int = Depends(get_current_tenant),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -25,7 +26,19 @@ async def create_sale(
     """Realiza una nueva venta"""
     repo = SaleRepository(db)
     try:
-        sale = await repo.create_sale(tenant_id, current_user.id, sale_in)
+        sale = await repo.create_sale(tenant_id, current_user.id, sale_in, background_tasks)
+        
+        # Disparar Webhook en segundo plano
+        from ...services.webhook_service import WebhookService
+        from ...models.base import async_session
+        background_tasks.add_task(
+            WebhookService.trigger_webhook_task,
+            tenant_id,
+            "sale.created",
+            {"sale_id": sale.id, "total": float(sale.total_amount), "items_count": len(sale.items)},
+            async_session
+        )
+        
         return sale
     except Exception as e:
         # Aquí podrías manejar excepciones específicas como InsufficientStockException
@@ -103,12 +116,13 @@ async def get_sale_ticket(
 @router.post("/{sale_id}/annul", response_model=SaleResponse)
 async def annul_sale(
     sale_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
     """Anula una venta y revierte el stock (Solo Admins/Managers)"""
     repo = SaleRepository(db)
-    sale = await repo.annul_sale(sale_id, current_user.tenant_id, current_user.id)
+    sale = await repo.annul_sale(sale_id, current_user.tenant_id, current_user.id, background_tasks)
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
     return sale

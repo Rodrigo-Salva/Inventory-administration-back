@@ -2,14 +2,17 @@ from typing import Optional, Dict, Any, List
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from .base_service import BaseService
-from ..repositories import ProductRepository, InventoryMovementRepository, StockAlertRepository
-from ..models import Product, InventoryMovement, MovementType, StockAlert, AlertType, AlertStatus
+from ..repositories import ProductRepository, InventoryMovementRepository
+from ..models import Product, InventoryMovement, MovementType, AlertType, AlertStatus
 from ..core.exceptions import (
     ProductNotFoundException,
     InsufficientStockException,
     InvalidStockOperationException
 )
 from ..core.logging_config import get_logger
+from .notification_service import NotificationService
+from .stock_alert_service import StockAlertService
+from fastapi import BackgroundTasks
 
 logger = get_logger(__name__)
 
@@ -21,7 +24,7 @@ class InventoryService(BaseService):
         super().__init__(db)
         self.product_repo = ProductRepository(db)
         self.movement_repo = InventoryMovementRepository(db)
-        self.alert_repo = StockAlertRepository(db)
+        self.alert_service = StockAlertService(db)
     
     async def add_stock(
         self,
@@ -124,7 +127,7 @@ class InventoryService(BaseService):
         movement = await self.movement_repo.create(movement_data)
         
         # Verificar y resolver alertas de stock bajo si aplica
-        await self._check_and_resolve_alerts(product, tenant_id)
+        await self.alert_service.resolve_alerts_if_needed(product, tenant_id)
         
         await self.commit()
         
@@ -143,7 +146,8 @@ class InventoryService(BaseService):
         notes: Optional[str] = None,
         aisle: Optional[str] = None,
         shelf: Optional[str] = None,
-        bin: Optional[str] = None
+        bin: Optional[str] = None,
+        background_tasks: Optional[BackgroundTasks] = None
     ) -> InventoryMovement:
         """
         Remueve stock de un producto
@@ -234,7 +238,7 @@ class InventoryService(BaseService):
         movement = await self.movement_repo.create(movement_data)
         
         # Verificar y crear alertas si es necesario
-        await self._check_and_create_alerts(product, tenant_id)
+        await self._check_and_create_alerts(product, tenant_id, background_tasks)
         
         await self.commit()
         
@@ -249,7 +253,8 @@ class InventoryService(BaseService):
         new_stock: int,
         tenant_id: int,
         user_id: Optional[int] = None,
-        reason: Optional[str] = None
+        reason: Optional[str] = None,
+        background_tasks: Optional[BackgroundTasks] = None
     ) -> InventoryMovement:
         """
         Ajusta el stock de un producto a un valor específico
@@ -323,7 +328,7 @@ class InventoryService(BaseService):
         
         # Verificar alertas
         if difference < 0:
-            await self._check_and_create_alerts(product, tenant_id)
+            await self._check_and_create_alerts(product, tenant_id, background_tasks)
         else:
             await self._check_and_resolve_alerts(product, tenant_id)
         
@@ -333,63 +338,10 @@ class InventoryService(BaseService):
         
         return movement
     
-    async def _check_and_create_alerts(self, product: Product, tenant_id: int):
-        """Verifica y crea alertas de stock si es necesario"""
-        
-        # Verificar si ya existe una alerta activa para este producto
-        existing_alerts = await self.alert_repo.get_by_product(product.id, tenant_id)
-        active_alerts = [a for a in existing_alerts if a.status == AlertStatus.ACTIVE]
-        
-        # Stock bajo
-        if product.stock <= product.min_stock and product.stock > 0:
-            # Verificar si ya existe alerta de stock bajo
-            has_low_stock_alert = any(a.alert_type == AlertType.LOW_STOCK for a in active_alerts)
-            
-            if not has_low_stock_alert:
-                alert_data = {
-                    "tenant_id": tenant_id,
-                    "product_id": product.id,
-                    "alert_type": AlertType.LOW_STOCK,
-                    "status": AlertStatus.ACTIVE,
-                    "current_stock": product.stock,
-                    "threshold_value": product.min_stock,
-                    "message": f"Stock bajo para '{product.name}': {product.stock} unidades (mínimo: {product.min_stock})"
-                }
-                await self.alert_repo.create(alert_data)
-                logger.warning(f"Alerta de stock bajo creada para producto {product.id}")
-        
-        # Sin stock
-        elif product.stock <= 0:
-            # Verificar si ya existe alerta de sin stock
-            has_out_of_stock_alert = any(a.alert_type == AlertType.OUT_OF_STOCK for a in active_alerts)
-            
-            if not has_out_of_stock_alert:
-                alert_data = {
-                    "tenant_id": tenant_id,
-                    "product_id": product.id,
-                    "alert_type": AlertType.OUT_OF_STOCK,
-                    "status": AlertStatus.ACTIVE,
-                    "current_stock": product.stock,
-                    "threshold_value": 0,
-                    "message": f"Producto '{product.name}' sin stock"
-                }
-                await self.alert_repo.create(alert_data)
-                logger.warning(f"Alerta de sin stock creada para producto {product.id}")
+    async def _check_and_create_alerts(self, product: Product, tenant_id: int, background_tasks: Optional[BackgroundTasks] = None):
+        """Redirige al servicio centralizado"""
+        await self.alert_service.check_and_trigger_alerts(product, tenant_id, background_tasks)
     
     async def _check_and_resolve_alerts(self, product: Product, tenant_id: int):
-        """Verifica y resuelve alertas si el stock ha mejorado"""
-        
-        # Obtener alertas activas del producto
-        existing_alerts = await self.alert_repo.get_by_product(product.id, tenant_id)
-        active_alerts = [a for a in existing_alerts if a.status == AlertStatus.ACTIVE]
-        
-        for alert in active_alerts:
-            # Resolver alerta de sin stock si ahora hay stock
-            if alert.alert_type == AlertType.OUT_OF_STOCK and product.stock > 0:
-                alert.resolve()
-                logger.info(f"Alerta de sin stock resuelta para producto {product.id}")
-            
-            # Resolver alerta de stock bajo si el stock está por encima del mínimo
-            elif alert.alert_type == AlertType.LOW_STOCK and product.stock > product.min_stock:
-                alert.resolve()
-                logger.info(f"Alerta de stock bajo resuelta para producto {product.id}")
+        """Redirige al servicio centralizado"""
+        await self.alert_service.resolve_alerts_if_needed(product, tenant_id)

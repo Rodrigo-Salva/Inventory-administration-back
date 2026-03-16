@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     
     # AI (Gemini)
     google_api_key: Optional[str] = None
+    
+    # Observability
+    sentry_dsn: Optional[str] = None
+    prometheus_enabled: bool = True
+
+    # Mercado Pago
+    mp_access_token: Optional[str] = None
+    mp_public_key: Optional[str] = None
 
     class Config:
         env_file = ".env"

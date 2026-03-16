@@ -13,6 +13,7 @@ class DashboardStats(BaseModel):
     total_revenue: float = 0.0
     purchase_count: int = 0
     total_investment: float = 0.0
+    monthly_sales_goal: float = 0.0
 
 class MovementTrend(BaseModel):
     date: str

@@ -30,7 +30,8 @@ class InventoryAuditService(BaseService):
         }
         audit = await self.audit_repo.create(audit_data)
         await self.commit()
-        return audit
+        # Retornar con relaciones cargadas para evitar MissingGreenlet en serialización
+        return await self.audit_repo.get_with_items(audit.id, tenant_id)
 
     async def add_counted_item(self, audit_id: int, product_id: int, counted_stock: int, tenant_id: int, notes: Optional[str] = None) -> InventoryAuditItem:
         """Registra el conteo de un producto en la auditoría"""
@@ -67,6 +68,15 @@ class InventoryAuditService(BaseService):
                 "notes": notes
             }
             item = await self.audit_repo.create_item(item_data)
+
+        # Cargar la relación product para evitar MissingGreenlet en serialización
+        from sqlalchemy.orm import selectinload
+        from sqlalchemy import select
+        query = select(InventoryAuditItem).options(
+            selectinload(InventoryAuditItem.product)
+        ).where(InventoryAuditItem.id == item.id)
+        result = await self.db.execute(query)
+        item = result.scalar_one()
 
         await self.commit()
         return item
