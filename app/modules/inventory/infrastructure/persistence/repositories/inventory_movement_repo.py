@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from .base_repository import BaseRepository
-from ..models import InventoryMovement, MovementType
-from ..core.pagination import PaginationParams
+from app.repositories.base_repository import BaseRepository
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement, MovementType
+from app.core.pagination import PaginationParams
 
 
 class InventoryMovementRepository(BaseRepository[InventoryMovement]):

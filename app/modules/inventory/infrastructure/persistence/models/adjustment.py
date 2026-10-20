@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import Column, Integer, String, Enum as SQLEnum, ForeignKey, Float
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin, TenantMixin
+from app.shared.infrastructure.database import Base, TimestampMixin, TenantMixin
 
 class AdjustmentReason(str, enum.Enum):
     DAMAGE = "DAMAGE"

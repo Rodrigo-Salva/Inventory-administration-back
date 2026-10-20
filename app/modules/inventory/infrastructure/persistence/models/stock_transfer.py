@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Text, DateTime
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from app.shared.infrastructure.database import Base, TimestampMixin
 import enum
 
 class StockTransferStatus(str, enum.Enum):

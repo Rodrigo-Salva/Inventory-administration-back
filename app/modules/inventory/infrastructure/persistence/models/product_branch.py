@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from app.shared.infrastructure.database import Base, TimestampMixin
 
 class ProductBranch(Base, TimestampMixin):
     """

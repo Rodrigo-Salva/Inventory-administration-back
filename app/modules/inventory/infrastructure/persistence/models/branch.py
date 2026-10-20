@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin, TenantMixin, SoftDeleteMixin
+from app.shared.infrastructure.database import Base, TimestampMixin, TenantMixin, SoftDeleteMixin
 
 class Branch(Base, TimestampMixin, TenantMixin, SoftDeleteMixin):
     __tablename__ = "branches"

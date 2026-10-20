@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..models.adjustment import InventoryAdjustment, AdjustmentReason
-from ..models.product import Product
-from ..models.inventory_movement import InventoryMovement, MovementType
-from ..schemas.adjustment import AdjustmentCreate
+from app.modules.inventory.infrastructure.persistence.models.adjustment import InventoryAdjustment, AdjustmentReason
+from app.modules.catalog.infrastructure.persistence.models.product import Product
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement, MovementType
+from app.modules.inventory.presentation.http.adjustment import AdjustmentCreate
 from typing import List, Optional, Tuple
 from datetime import datetime
 

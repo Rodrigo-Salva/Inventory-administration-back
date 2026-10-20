@@ -1,9 +1,9 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from .base_repository import BaseRepository
-from ..models.branch import Branch
-from ..core.pagination import PaginationParams
+from app.repositories.base_repository import BaseRepository
+from app.modules.inventory.infrastructure.persistence.models.branch import Branch
+from app.core.pagination import PaginationParams
 
 class BranchRepository(BaseRepository[Branch]):
     """Repositorio para sucursales"""

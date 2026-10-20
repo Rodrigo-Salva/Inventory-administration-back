@@ -1,9 +1,9 @@
 from typing import List, Optional, Tuple
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from .base_repository import BaseRepository
-from ..models.inventory_audit import InventoryAudit, InventoryAuditItem, AuditStatus
-from ..core.pagination import PaginationParams
+from app.repositories.base_repository import BaseRepository
+from app.modules.inventory.infrastructure.persistence.models.inventory_audit import InventoryAudit, InventoryAuditItem, AuditStatus
+from app.core.pagination import PaginationParams
 
 class InventoryAuditRepository(BaseRepository[InventoryAudit]):
     def __init__(self, db: AsyncSession):

@@ -1,11 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
-from ..models.stock_transfer import StockTransfer, StockTransferItem, StockTransferStatus
-from ..models.product import Product
-from ..models.product_branch import ProductBranch
-from ..models.inventory_movement import InventoryMovement, MovementType
-from ..schemas.stock_transfer import StockTransferCreate
+from app.modules.inventory.infrastructure.persistence.models.stock_transfer import StockTransfer, StockTransferItem, StockTransferStatus
+from app.modules.catalog.infrastructure.persistence.models.product import Product
+from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement, MovementType
+from app.modules.inventory.presentation.http.stock_transfer import StockTransferCreate
 from typing import List, Optional
 from datetime import datetime
 

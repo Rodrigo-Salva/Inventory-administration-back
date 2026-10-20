@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Index, Text, Numeric
 from sqlalchemy.orm import relationship
-from .base import TimestampMixin
-from .base import Base
+from app.shared.infrastructure.database import TimestampMixin
+from app.shared.infrastructure.database import Base
 import enum
 
 
