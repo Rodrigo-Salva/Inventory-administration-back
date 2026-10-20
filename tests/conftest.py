@@ -1,29 +1,28 @@
 import pytest
-import asyncio
+import os
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.main import app
-from app.dependencies import get_db
+from app.shared.infrastructure.database import get_db
 from app.core.config import settings
 
-# Test Database URL (using a separate test database or postgres in docker)
-TEST_DATABASE_URL = settings.DATABASE_URL.replace(
-    settings.POSTGRES_DB, f"{settings.POSTGRES_DB}_test"
-)
+# Nunca usar la base de desarrollo para pruebas. CI y docker-compose.test
+# declaran TEST_DATABASE_URL; el fallback solo construye un nombre separado.
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+if not TEST_DATABASE_URL:
+    base_url, separator, database_name = settings.database_url.rpartition("/")
+    if not separator or not database_name:
+        raise RuntimeError("Define TEST_DATABASE_URL para ejecutar las pruebas.")
+    TEST_DATABASE_URL = f"{base_url}/{database_name}_test"
 
-engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
 TestingSessionLocal = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
@@ -37,9 +36,3 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         yield ac
-
-@pytest.fixture(autouse=True)
-async def setup_db():
-    # In a real scenario, we'd run migrations here or create all tables
-    # For now, we assume the test runner handles DB creation/migrations
-    yield
