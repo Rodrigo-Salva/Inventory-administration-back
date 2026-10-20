@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Index, Boolean
 from sqlalchemy.orm import relationship
-from .base import TimestampMixin, SoftDeleteMixin
-from .base import Base
+from app.shared.infrastructure.database import Base, SoftDeleteMixin, TimestampMixin
 
 
 class Category(Base, TimestampMixin, SoftDeleteMixin):

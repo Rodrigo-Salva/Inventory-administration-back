@@ -3,10 +3,10 @@ from datetime import datetime
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from .base_repository import BaseRepository
-from ..models import Product
-from ..models.product_branch import ProductBranch
-from ..core.pagination import PaginationParams
+from app.repositories.base_repository import BaseRepository
+from app.modules.catalog.infrastructure.persistence.models.product import Product
+from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
+from app.core.pagination import PaginationParams
 
 
 class ProductRepository(BaseRepository[Product]):

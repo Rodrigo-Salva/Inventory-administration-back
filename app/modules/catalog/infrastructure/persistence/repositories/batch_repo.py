@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from .base_repository import BaseRepository
-from ..models.product_batch import ProductBatch
-from ..models.product import Product
+from app.repositories.base_repository import BaseRepository
+from app.modules.catalog.infrastructure.persistence.models.product_batch import ProductBatch
+from app.modules.catalog.infrastructure.persistence.models.product import Product
 from typing import List, Optional
 from datetime import date
 

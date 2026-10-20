@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, Index
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from app.shared.infrastructure.database import Base, TimestampMixin
 
 class ProductBatch(Base, TimestampMixin):
     """Modelo para control de lotes y fechas de vencimiento"""

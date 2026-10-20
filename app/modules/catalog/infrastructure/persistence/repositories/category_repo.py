@@ -3,9 +3,9 @@ from datetime import datetime
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from .base_repository import BaseRepository
-from ..models import Category
-from ..core.pagination import PaginationParams
+from app.repositories.base_repository import BaseRepository
+from app.modules.catalog.infrastructure.persistence.models.category import Category
+from app.core.pagination import PaginationParams
 
 
 class CategoryRepository(BaseRepository[Category]):

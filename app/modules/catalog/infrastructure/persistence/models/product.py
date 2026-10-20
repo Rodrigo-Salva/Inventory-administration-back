@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Index, Numeric, Text, Boolean
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin, SoftDeleteMixin
+from app.shared.infrastructure.database import Base, SoftDeleteMixin, TimestampMixin
 
 
 class Product(Base, TimestampMixin, SoftDeleteMixin):
