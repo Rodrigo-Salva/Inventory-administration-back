@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
-from ..models.expense import Expense, ExpenseCategory
+from app.modules.purchasing.infrastructure.persistence.models.expense import Expense, ExpenseCategory
 from typing import List, Optional, Tuple
 from datetime import datetime
 

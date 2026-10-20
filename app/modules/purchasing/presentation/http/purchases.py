@@ -2,18 +2,18 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models.base import get_db
-from ...models.purchase import PurchaseStatus
-from ...dependencies import get_current_tenant, get_current_user
-from ...repositories import PurchaseRepository
-from ...schemas.purchase import (
+from app.shared.infrastructure.database import get_db
+from app.modules.purchasing.infrastructure.persistence.models.purchase import PurchaseStatus
+from app.dependencies import get_current_tenant, get_current_user
+from app.modules.purchasing.infrastructure.persistence.repositories.purchase_repo import PurchaseRepository
+from app.modules.purchasing.presentation.http.purchase import (
     PurchaseCreate,
     PurchaseUpdate,
     PurchaseOut,
     PurchaseSummary
 )
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
-from ...core.logging_config import get_logger
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -87,7 +87,7 @@ async def create_purchase(
     purchase_data["total_amount"] = total
     # purchase_data["user_id"] = current_user_id # Si el dependency devuelve el ID
     
-    from ...models import Purchase, PurchaseItem
+    from app.modules.purchasing.infrastructure.persistence.models.purchase import Purchase, PurchaseItem
     new_purchase = Purchase(**purchase_data)
     db.add(new_purchase)
     await db.flush() # Para obtener el ID
@@ -181,8 +181,8 @@ async def export_purchase_pdf(
     db: AsyncSession = Depends(get_db)
 ):
     """Genera un reporte PDF profesional de una orden de compra"""
-    from ...services.report_generator import ReportGenerator
-    from ...repositories.tenant_repo import TenantRepository
+    from app.services.report_generator import ReportGenerator
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     
     repo = PurchaseRepository(db)
     t_repo = TenantRepository(db)

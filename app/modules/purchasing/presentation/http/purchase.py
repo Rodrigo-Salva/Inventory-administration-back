@@ -2,10 +2,10 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
-from .product import ProductOut
-from .supplier import SupplierOut
-from .user import UserOut
-from ..models.purchase import PurchaseStatus, PurchasePaymentStatus
+from app.modules.catalog.presentation.http.product import ProductOut
+from app.modules.catalog.presentation.http.supplier import SupplierOut
+from app.modules.identity.presentation.http.schemas import UserOut
+from app.modules.purchasing.infrastructure.persistence.models.purchase import PurchaseStatus, PurchasePaymentStatus
 
 class PurchaseItemBase(BaseModel):
     product_id: int

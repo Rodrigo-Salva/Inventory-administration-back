@@ -2,12 +2,12 @@ from typing import List, Optional, Tuple
 from datetime import datetime
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
-from .base_repository import BaseRepository
-from ..models.purchase import Purchase, PurchaseItem, PurchaseStatus
-from ..models.product import Product
-from ..models.inventory_movement import InventoryMovement
-from ..core.pagination import PaginationParams
-from ..services.inventory_service import InventoryService
+from app.repositories.base_repository import BaseRepository
+from app.modules.purchasing.infrastructure.persistence.models.purchase import Purchase, PurchaseItem, PurchaseStatus
+from app.modules.catalog.infrastructure.persistence.models.product import Product
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement
+from app.core.pagination import PaginationParams
+from app.services.inventory_service import InventoryService
 
 class PurchaseRepository(BaseRepository[Purchase]):
     def __init__(self, db):

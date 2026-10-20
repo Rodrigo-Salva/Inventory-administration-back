@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, Text, Enum as SQLEnum, DateTime
 from sqlalchemy.orm import relationship
 import enum
-from .base import Base, TimestampMixin, SoftDeleteMixin
+from app.shared.infrastructure.database import Base, TimestampMixin, SoftDeleteMixin
 
 class PurchaseStatus(str, enum.Enum):
     DRAFT = "draft"

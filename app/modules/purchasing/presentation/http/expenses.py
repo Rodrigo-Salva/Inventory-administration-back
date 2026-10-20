@@ -3,14 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from datetime import datetime
 
-from ...models.base import get_db
-from ...models.user import User
-from ...dependencies import get_current_user, get_current_tenant
-from ...schemas.expense import (
+from app.shared.infrastructure.database import get_db
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.dependencies import get_current_user, get_current_tenant
+from app.modules.purchasing.presentation.http.expense import (
     ExpenseCreate, ExpenseResponse, ExpenseCategoryCreate, 
     ExpenseCategoryResponse, ExpenseSummary
 )
-from ...repositories.expense_repo import ExpenseRepository
+from app.modules.purchasing.infrastructure.persistence.repositories.expense_repo import ExpenseRepository
 
 router = APIRouter(tags=["Expenses"])
 
