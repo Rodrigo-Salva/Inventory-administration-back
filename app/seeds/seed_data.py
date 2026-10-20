@@ -16,8 +16,8 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models import Base, Tenant, User, Category, Supplier, Product
-from app.models.role import Role, Permission
-from app.models.user import UserRole
+from app.modules.identity.infrastructure.persistence.models.role import Role, Permission
+from app.modules.identity.infrastructure.persistence.models.user import UserRole
 from app.seeds.data.categories import CATEGORIES
 from app.seeds.data.suppliers import SUPPLIERS
 from app.seeds.data.products import PRODUCTS

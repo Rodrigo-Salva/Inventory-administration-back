@@ -1,6 +1,6 @@
 from typing import Generic, TypeVar, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..core.logging_config import get_logger
+from ..core.logging import get_logger
 
 logger = get_logger(__name__)
 

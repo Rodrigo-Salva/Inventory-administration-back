@@ -7,7 +7,7 @@ from ...dependencies import get_current_tenant, get_current_user
 from ...schemas.quote import QuoteCreate, QuoteResponse, PaginatedQuoteResponse
 from ...repositories.quote_repo import QuoteRepository
 from ...services.quote_service import QuoteService
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 from ...models.sale import PaymentMethod
 from ...schemas.sale import SaleResponse
 

@@ -4,16 +4,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
-from .api.v1 import (
-    auth, products, categories, suppliers, inventory,
-    users, tenant, reports, roles, sales, branches,
-    customers, purchases, adjustments, audit,
-    notifications, ai, expenses, quotes, product_batches,
-    stock_transfers, health, pos, credits, loyalty, barcodes,
-    inventory_audits, webhooks, payments
-)
+from .modules.registry import register_routers
 from .core.config import settings
-from .core.logging_config import setup_logging
+from .core.logging import setup_logging
 from .core.cache import cache_manager
 from .core.exceptions import InventoryBaseException
 from .core.context_middleware import ContextMiddleware
@@ -78,8 +71,8 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tablas principales (sucursales)...")
         try:
-            from .models.branch import Branch
-            from .models.product_branch import ProductBranch
+            from .modules.inventory.infrastructure.persistence.models.branch import Branch
+            from .modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
             # Tablas base que deben existir primero
             await conn.run_sync(Base.metadata.create_all, tables=[Branch.__table__])
             
@@ -214,7 +207,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tabla de ajustes si no existe...")
         try:
-            from .models.adjustment import InventoryAdjustment
+            from .modules.inventory.infrastructure.persistence.models.adjustment import InventoryAdjustment
             await conn.run_sync(Base.metadata.create_all, tables=[InventoryAdjustment.__table__])
             logger.info("Tabla de ajustes verificada")
         except Exception as e:
@@ -222,7 +215,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tablas de traslados si no existen...")
         try:
-            from .models.stock_transfer import StockTransfer, StockTransferItem
+            from .modules.inventory.infrastructure.persistence.models.stock_transfer import StockTransfer, StockTransferItem
             await conn.run_sync(Base.metadata.create_all, tables=[StockTransfer.__table__, StockTransferItem.__table__])
             logger.info("Tablas de traslados verificadas")
         except Exception as e:
@@ -230,7 +223,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Creando tablas de auditoría de inventario...")
         try:
-            from .models.inventory_audit import InventoryAudit, InventoryAuditItem
+            from .modules.inventory.infrastructure.persistence.models.inventory_audit import InventoryAudit, InventoryAuditItem
             await conn.run_sync(Base.metadata.create_all, tables=[InventoryAudit.__table__, InventoryAuditItem.__table__])
             logger.info("Tablas de auditoría verificadas")
         except Exception as e:
@@ -433,36 +426,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Routers
-app.include_router(health.router, prefix="/health", tags=["health"])
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
-app.include_router(categories.router, prefix="/api/v1/categories", tags=["categories"])
-app.include_router(suppliers.router, prefix="/api/v1/suppliers", tags=["suppliers"])
-app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventory"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(tenant.router, prefix="/api/v1/tenant", tags=["tenant"])
-app.include_router(reports.router, prefix=f"{settings.api_v1_str}/reports", tags=["reports"])
-app.include_router(roles.router, prefix=f"{settings.api_v1_str}/roles")
-app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
-app.include_router(branches.router, prefix=f"{settings.api_v1_str}/branches", tags=["branches"])
-app.include_router(customers.router, prefix="/api/v1/customers", tags=["customers"])
-app.include_router(purchases.router, prefix="/api/v1/purchases", tags=["purchases"])
-app.include_router(adjustments.router, prefix="/api/v1/adjustments", tags=["adjustments"])
-app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
-app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
-app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
-app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["expenses"])
-app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
-app.include_router(product_batches.router, prefix="/api/v1/product-batches", tags=["product-batches"])
-app.include_router(stock_transfers.router, prefix="/api/v1/stock-transfers", tags=["stock-transfers"])
-app.include_router(pos.router, prefix="/api/v1/pos", tags=["pos"])
-app.include_router(credits.router, prefix="/api/v1/credits", tags=["credits"])
-app.include_router(loyalty.router, prefix="/api/v1/loyalty", tags=["loyalty"])
-app.include_router(barcodes.router, prefix="/api/v1/barcodes", tags=["barcodes"])
-app.include_router(inventory_audits.router, prefix="/api/v1/inventory-audits", tags=["inventory-audits"])
-app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["webhooks"])
-app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
+register_routers(app)
 
 # Servir archivos estáticos
 os.makedirs("static/avatars", exist_ok=True)

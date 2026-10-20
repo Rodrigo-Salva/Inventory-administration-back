@@ -6,7 +6,7 @@ from pydantic import BaseModel, HttpUrl
 
 from ...models import get_db
 from ...dependencies import get_current_tenant, require_role
-from ...models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 from ...models.webhook import Webhook
 from ...repositories.webhook_repo import WebhookRepository
 

@@ -10,10 +10,10 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.base import get_db
 from ...dependencies import get_current_tenant, require_role, require_permission
-from ...models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 from ...repositories.report_repo import ReportRepository
 from ...schemas.report import InventoryReport
-from ...core.logging_config import get_logger
+from ...core.logging import get_logger
 from ...core.pagination import PaginationParams
 
 logger = get_logger(__name__)
@@ -52,11 +52,20 @@ async def get_dashboard_data(
     user_activity = await repo.get_user_activity(tenant_id, start_date=start_date, end_date=end_date)
     top_moves = await repo.get_top_moving_products(tenant_id, start_date=start_date, end_date=end_date)
     
+    sales_by_date = {t["date"]: t["revenue"] for t in sales_trends}
+    purchases_by_date = {t["date"]: t["investment"] for t in purchase_trends}
+    all_dates = sorted(set(sales_by_date) | set(purchases_by_date))
+    comparison_trends = [
+        {"date": d, "sales": sales_by_date.get(d, 0), "purchases": purchases_by_date.get(d, 0)}
+        for d in all_dates
+    ]
+
     return {
         "stats": stats,
         "trends": trends,
         "sales_trends": sales_trends,
-        "purchase_trends": [{"date": t["date"], "revenue": t["investment"], "count": t["count"]} for t in purchase_trends], # Map investment to revenue for schema compatibility
+        "purchase_trends": [{"date": t["date"], "revenue": t["investment"], "count": t["count"]} for t in purchase_trends],
+        "comparison_trends": comparison_trends,
         "top_selling_products": top_selling,
         "recent_movements": recent,
         "low_stock_products": low_stock,
@@ -88,7 +97,7 @@ async def export_inventory_csv(
     db: AsyncSession = Depends(get_db)
 ):
     """Genera un reporte CSV del inventario actual con filtros opcionales"""
-    from ...repositories.product_repo import ProductRepository
+    from app.modules.catalog.infrastructure.persistence.repositories.product_repo import ProductRepository
     repo = ProductRepository(db)
     
     # Obtener productos filtrados
@@ -137,9 +146,9 @@ async def export_inventory_excel(
     db: AsyncSession = Depends(get_db)
 ):
     """Genera un reporte Excel profesional del inventario (Solo Admins/Managers)"""
-    from ...repositories.product_repo import ProductRepository
+    from app.modules.catalog.infrastructure.persistence.repositories.product_repo import ProductRepository
     tenant_id = current_user.tenant_id
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = ProductRepository(db)
     t_repo = TenantRepository(db)
     
@@ -216,8 +225,8 @@ async def export_suppliers_excel(
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    from ...repositories.supplier_repo import SupplierRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.catalog.infrastructure.persistence.repositories.supplier_repo import SupplierRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = SupplierRepository(db)
     t_repo = TenantRepository(db)
     suppliers, _ = await repo.get_filtered(tenant_id=tenant_id, search=search, is_active=is_active, start_date=start_date, end_date=end_date)
@@ -275,8 +284,8 @@ async def export_categories_excel(
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    from ...repositories.category_repo import CategoryRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.catalog.infrastructure.persistence.repositories.category_repo import CategoryRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = CategoryRepository(db)
     t_repo = TenantRepository(db)
     categories, _ = await repo.get_filtered(tenant_id=tenant_id, search=search, is_active=is_active, start_date=start_date, end_date=end_date)
@@ -334,8 +343,8 @@ async def export_users_excel(
     tenant_id: int = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    from ...repositories.user_repo import UserRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.user_repo import UserRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = UserRepository(db)
     t_repo = TenantRepository(db)
     users, _ = await repo.get_filtered(tenant_id=tenant_id, search=search, is_active=is_active, start_date=start_date, end_date=end_date)
@@ -394,7 +403,7 @@ async def export_movements_excel(
     db: AsyncSession = Depends(get_db)
 ):
     from ...repositories.inventory_movement_repo import InventoryMovementRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = InventoryMovementRepository(db)
     t_repo = TenantRepository(db)
     movements, _ = await repo.get_filtered(tenant_id=tenant_id, product_id=product_id, movement_type=movement_type, start_date=start_date, end_date=end_date)
@@ -453,7 +462,7 @@ async def export_sales_excel(
     db: AsyncSession = Depends(get_db)
 ):
     """Genera un reporte Excel profesional de ventas"""
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = ReportRepository(db)
     t_repo = TenantRepository(db)
     
@@ -536,7 +545,7 @@ async def export_sales_pdf(
     db: AsyncSession = Depends(get_db)
 ):
     """Genera un reporte PDF resumen de ventas"""
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     from ...services.report_generator import ReportGenerator
     # Usamos el repo de reportes para obtener las ventas filtradas
     repo = ReportRepository(db)
@@ -629,7 +638,7 @@ async def export_expenses_excel(
 ):
     """Exporta gastos en formato Excel profesional"""
     from ...repositories.expense_repo import ExpenseRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = ExpenseRepository(db)
     t_repo = TenantRepository(db)
     
@@ -697,7 +706,7 @@ async def export_expenses_pdf(
 ):
     """Exporta gastos en formato PDF profesional"""
     from ...repositories.expense_repo import ExpenseRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     from ...services.report_generator import ReportGenerator
     
     repo = ExpenseRepository(db)
@@ -742,7 +751,7 @@ async def export_customers_excel(
 ):
     """Exporta clientes en formato Excel profesional"""
     from ...repositories.customer_repo import CustomerRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = CustomerRepository(db)
     t_repo = TenantRepository(db)
     
@@ -804,7 +813,7 @@ async def export_purchases_excel(
 ):
     """Exporta compras en formato Excel profesional"""
     from ...repositories.purchase_repo import PurchaseRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = PurchaseRepository(db)
     t_repo = TenantRepository(db)
     
@@ -870,7 +879,7 @@ async def export_adjustments_excel(
 ):
     """Exporta ajustes de inventario en formato Excel profesional"""
     from ...repositories.adjustment_repo import AdjustmentRepository
-    from ...repositories.tenant_repo import TenantRepository
+    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
     repo = AdjustmentRepository(db)
     t_repo = TenantRepository(db)
     

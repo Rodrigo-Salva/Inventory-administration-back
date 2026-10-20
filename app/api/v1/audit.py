@@ -4,7 +4,7 @@ from typing import Optional, List
 from ...dependencies import get_db_session, get_current_user, require_permission
 from ...repositories.audit_repo import AuditLogRepository
 from ...core.pagination import PaginationParams
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 
 router = APIRouter()
 

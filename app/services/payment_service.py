@@ -1,7 +1,7 @@
 import mercadopago
 from typing import Dict, Any, Optional
 from ..core.config import settings
-from ..core.logging_config import get_logger
+from ..core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -90,7 +90,7 @@ class PaymentService:
                     tenant_id = int(external_reference.replace("tenant_", ""))
                     
                     # 2. Actualizar el tenant
-                    from ..repositories.tenant_repo import TenantRepository
+                    from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
                     from datetime import datetime, timedelta
                     
                     async with db_session_factory() as db:

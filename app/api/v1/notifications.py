@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from ...dependencies import get_db_session, get_current_user
 from ...repositories.stock_alert_repo import StockAlertRepository
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 
 router = APIRouter()
 

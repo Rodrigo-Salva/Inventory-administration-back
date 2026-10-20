@@ -13,7 +13,7 @@ from ...schemas.customer import (
 )
 from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
 from ...core.exceptions import DuplicateResourceException
-from ...core.logging_config import get_logger
+from ...core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

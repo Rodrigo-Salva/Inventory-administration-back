@@ -29,11 +29,17 @@ class SalesTrend(BaseModel):
     revenue: float
     count: int
 
+class ComparisonTrend(BaseModel):
+    date: str
+    sales: float
+    purchases: float
+
 class InventoryReport(BaseModel):
     stats: DashboardStats
     trends: List[MovementTrend]
     sales_trends: List[SalesTrend] = []
-    purchase_trends: List[SalesTrend] = [] # Reusing SalesTrend for purchases
+    purchase_trends: List[SalesTrend] = []
+    comparison_trends: List[ComparisonTrend] = [] # Reusing SalesTrend for purchases
     top_selling_products: List[CategoryValue] = []
     recent_movements: List[Dict[str, Any]]
     low_stock_products: List[Dict[str, Any]] = []

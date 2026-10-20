@@ -4,9 +4,9 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import joinedload, selectinload
 from .base_repository import BaseRepository
 from ..models.sale import Sale, SaleItem
-from ..models.product import Product
-from ..models.product_batch import ProductBatch
-from ..models.inventory_movement import InventoryMovement, MovementType
+from app.modules.catalog.infrastructure.persistence.models.product import Product
+from app.modules.catalog.infrastructure.persistence.models.product_batch import ProductBatch
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement, MovementType
 from ..core.exceptions import ProductNotFoundException, InsufficientStockException
 from decimal import Decimal
 from datetime import datetime
