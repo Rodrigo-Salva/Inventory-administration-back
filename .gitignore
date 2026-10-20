@@ -1,6 +1,7 @@
 .env
 venv/
 __pycache__/
+**/__pycache__/
 logs/
 *.log
 .pytest_cache/
@@ -10,4 +11,3 @@ dist/
 build/
 *.spec
 .env.docker
-.env.example__pycache__/

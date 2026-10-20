@@ -5,7 +5,7 @@ import hashlib
 from typing import List, Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..repositories.webhook_repo import WebhookRepository
-from ..core.logging_config import get_logger
+from ..core.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -4,7 +4,7 @@ from ...models import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...dependencies import get_current_user, require_permission
 from ...services.ai_service import AIService
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 from pydantic import BaseModel
 
 router = APIRouter()

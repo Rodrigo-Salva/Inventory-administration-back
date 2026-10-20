@@ -4,7 +4,7 @@ from fastapi import BackgroundTasks
 from ..models import Product, StockAlert, AlertType, AlertStatus
 from ..repositories import StockAlertRepository, TenantRepository
 from .notification_service import NotificationService
-from ..core.logging_config import get_logger
+from ..core.logging import get_logger
 
 logger = get_logger(__name__)
 

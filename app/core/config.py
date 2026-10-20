@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from dotenv import load_dotenv
 
@@ -7,17 +7,23 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
     # Application
     app_name: str = "Inventory SaaS"
     app_version: str = "1.0.0"
     environment: str = "development"  # development, staging, production
-    debug: bool = True
+    debug: bool = False
     api_v1_str: str = "/api/v1"
     
     # Database
     database_url: str
     db_pool_size: int = 5
     db_max_overflow: int = 10
+    sql_echo: bool = False
     
     # Security
     secret_key: str
@@ -25,7 +31,19 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # CORS
-    cors_origins: List[str] | str = ["*"]
+    cors_origins: List[str] | str = []
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        """Acepta los valores heredados de entorno sin habilitar debug por error."""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "production", "prod", "false", "0", "no"}:
+                return False
+            if normalized in {"development", "dev", "true", "1", "yes"}:
+                return True
+        return value
     
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -72,11 +90,5 @@ class Settings(BaseSettings):
     # Mercado Pago
     mp_access_token: Optional[str] = None
     mp_public_key: Optional[str] = None
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"  # Ignorar campos extra del .env
-
 
 settings = Settings()

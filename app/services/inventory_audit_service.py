@@ -1,9 +1,9 @@
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from .base_service import BaseService
-from ..repositories.inventory_audit_repo import InventoryAuditRepository
-from ..repositories.product_repo import ProductRepository
-from ..models.inventory_audit import InventoryAudit, InventoryAuditItem, AuditStatus
+from app.modules.inventory.infrastructure.persistence.repositories.inventory_audit_repo import InventoryAuditRepository
+from app.modules.catalog.infrastructure.persistence.repositories.product_repo import ProductRepository
+from app.modules.inventory.infrastructure.persistence.models.inventory_audit import InventoryAudit, InventoryAuditItem, AuditStatus
 from ..services.inventory_service import InventoryService
 from ..core.exceptions import (
     ProductNotFoundException,
@@ -41,7 +41,7 @@ class InventoryAuditService(BaseService):
 
         # Obtener stock esperado actual en esa sucursal
         from sqlalchemy import select
-        from ..models.product_branch import ProductBranch
+        from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
         query = select(ProductBranch).where(
             ProductBranch.product_id == product_id,
             ProductBranch.branch_id == audit.branch_id

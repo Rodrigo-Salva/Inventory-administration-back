@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.base import get_db
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 from ...dependencies import get_current_user
 from ...schemas.cash_session import CashSessionCreate, CashSessionResponse, CashSessionClose
 from ...repositories.cash_session_repo import CashSessionRepository

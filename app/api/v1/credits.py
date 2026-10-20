@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from ...models.base import get_db
-from ...models.user import User
+from app.modules.identity.infrastructure.persistence.models.user import User
 from ...dependencies import get_current_user, require_permission
 from ...repositories.credit_repo import CreditRepository
 from ...repositories.payment_repo import PaymentRepository

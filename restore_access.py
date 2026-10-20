@@ -1,12 +1,7 @@
 import asyncio
-import os
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from app.shared.infrastructure.database import async_session, engine
 from app.models.user import User
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:28demarzo@localhost:5432/inventory_saas")
-engine = create_async_engine(DATABASE_URL, echo=True)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def restore():
     async with async_session() as session:

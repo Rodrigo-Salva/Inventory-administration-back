@@ -6,8 +6,8 @@ from ...models import get_db
 from ...dependencies import get_current_tenant, get_current_user, require_role, require_permission
 from ...schemas.sale import SaleCreate, SaleResponse, PaginatedSaleResponse
 from ...repositories.sale_repo import SaleRepository
-from ...repositories.tenant_repo import TenantRepository
-from ...models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 from ...services.ticket_generator import TicketGenerator
 from fastapi.responses import StreamingResponse
 

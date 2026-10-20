@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from .product import ProductOut
-from .user import UserOut
+from app.modules.catalog.presentation.http.product import ProductOut
+from app.modules.identity.presentation.http.schemas import UserOut
 from .customer import CustomerSummary
 from datetime import datetime
 from decimal import Decimal

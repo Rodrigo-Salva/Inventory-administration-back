@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from ...models import get_db
 from ...dependencies import get_current_tenant, require_role
-from ...models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 from ...services.payment_service import PaymentService
 
 router = APIRouter(tags=["Payments"])
