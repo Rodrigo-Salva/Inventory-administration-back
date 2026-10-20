@@ -243,6 +243,6 @@ class BulkImportResponse(BaseModel):
 
 
 # Para evitar errores de forward reference
-from .branch import ProductBranchResponse
-from .product_batch import ProductBatchOut
+from app.modules.inventory.presentation.http.branch import ProductBranchResponse
+from app.modules.catalog.presentation.http.product_batch import ProductBatchOut
 ProductWithRelations.model_rebuild()

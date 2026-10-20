@@ -1,14 +1,14 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models import get_db
-from ...dependencies import get_current_tenant, require_role, require_permission
-from ...models.user import User, UserRole
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant, require_role, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 import csv
 import io
 from decimal import Decimal
-from ...repositories import ProductRepository
-from ...schemas.product import (
+from app.modules.catalog.infrastructure.persistence.repositories.product_repo import ProductRepository
+from app.modules.catalog.presentation.http.product import (
     ProductCreate,
     ProductUpdate,
     ProductOut,
@@ -16,10 +16,10 @@ from ...schemas.product import (
     BulkProductImport,
     BulkImportResponse
 )
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
-from ...core.exceptions import ProductNotFoundException, DuplicateResourceException
-from ...core.logging_config import get_logger
-from ...services.label_generator import LabelGenerator
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.core.exceptions import ProductNotFoundException, DuplicateResourceException
+from app.core.logging import get_logger
+from app.services.label_generator import LabelGenerator
 from fastapi.responses import StreamingResponse
 from datetime import datetime
 

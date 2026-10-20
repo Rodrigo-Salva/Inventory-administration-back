@@ -1,12 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models import get_db
-from ...dependencies import get_current_tenant, require_permission
-from ...models.user import User
-from ...repositories.batch_repo import BatchRepository
-from ...schemas.product_batch import ProductBatchCreate, ProductBatchOut, ProductBatchUpdate
-from ...core.logging_config import get_logger
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.modules.catalog.infrastructure.persistence.repositories.batch_repo import BatchRepository
+from app.modules.catalog.presentation.http.product_batch import ProductBatchCreate, ProductBatchOut, ProductBatchUpdate
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

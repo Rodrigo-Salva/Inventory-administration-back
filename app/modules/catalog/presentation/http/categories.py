@@ -2,20 +2,20 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import get_db
-from ...dependencies import get_current_tenant, require_role
-from ...models.user import User, UserRole
-from ...repositories import CategoryRepository
-from ...schemas.category import (
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant, require_role
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
+from app.modules.catalog.infrastructure.persistence.repositories.category_repo import CategoryRepository
+from app.modules.catalog.presentation.http.category import (
     CategoryCreate,
     CategoryUpdate,
     CategoryOut,
     CategoryWithChildren,
     CategoryTree
 )
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
-from ...core.exceptions import CategoryNotFoundException, DuplicateResourceException
-from ...core.logging_config import get_logger
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.core.exceptions import CategoryNotFoundException, DuplicateResourceException
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

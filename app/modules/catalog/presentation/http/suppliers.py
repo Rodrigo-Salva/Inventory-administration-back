@@ -2,18 +2,18 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import get_db
-from ...dependencies import get_current_tenant
-from ...repositories import SupplierRepository
-from ...schemas.supplier import (
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant
+from app.modules.catalog.infrastructure.persistence.repositories.supplier_repo import SupplierRepository
+from app.modules.catalog.presentation.http.supplier import (
     SupplierCreate,
     SupplierUpdate,
     SupplierOut,
     SupplierSummary
 )
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
-from ...core.exceptions import SupplierNotFoundException, DuplicateResourceException
-from ...core.logging_config import get_logger
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.core.exceptions import SupplierNotFoundException, DuplicateResourceException
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
