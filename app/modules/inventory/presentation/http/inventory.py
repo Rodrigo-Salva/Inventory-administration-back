@@ -1,0 +1,135 @@
+from fastapi import APIRouter, Depends, status, BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant, get_current_user, require_role, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
+from app.services.inventory_service import InventoryService
+from app.modules.catalog.presentation.http.product import (
+    AddStockRequest,
+    RemoveStockRequest,
+    AdjustStockRequest,
+    InventoryMovementOut
+)
+from app.modules.inventory.infrastructure.persistence.repositories.inventory_movement_repo import InventoryMovementRepository
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.modules.inventory.infrastructure.persistence.models.inventory_movement import MovementType
+from typing import Optional, List
+from fastapi import Query
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+router = APIRouter()
+
+
+@router.get("", response_model=PaginatedResponse[InventoryMovementOut])
+async def list_movements(
+    pagination: PaginationParams = Depends(),
+    product_id: Optional[int] = Query(None, description="Filtrar por producto"),
+    movement_type: Optional[MovementType] = Query(None, description="Filtrar por tipo de movimiento"),
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Lista historial de movimientos de inventario"""
+    try:
+        repo = InventoryMovementRepository(db)
+        
+        if product_id:
+            items, total = await repo.get_by_product(product_id, tenant_id, pagination)
+        elif movement_type:
+            items, total = await repo.get_by_type(movement_type, tenant_id, pagination)
+        else:
+            items, total = await repo.get_paginated(pagination, tenant_id)
+            
+        metadata = create_pagination_metadata(pagination.page, pagination.page_size, total)
+        return PaginatedResponse(items=items, metadata=metadata)
+        
+    except Exception as e:
+        logger.error(f"Error listando movimientos: {e}")
+        import traceback
+        traceback.print_exc()
+        raise e
+
+
+@router.post("/add-stock", response_model=InventoryMovementOut)
+async def add_stock(
+    request: AddStockRequest,
+    current_user: User = Depends(require_permission("inventory:adjust")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Agrega stock a un producto (Solo Admins/Managers)"""
+    service = InventoryService(db)
+    
+    movement = await service.add_stock(
+        product_id=request.product_id,
+        branch_id=request.branch_id,
+        quantity=request.quantity,
+        tenant_id=current_user.tenant_id,
+        unit_cost=request.unit_cost,
+        reference=request.reference,
+        notes=request.notes,
+        aisle=request.aisle,
+        shelf=request.shelf,
+        bin=request.bin
+    )
+    
+    return movement
+
+
+@router.post("/remove-stock", response_model=InventoryMovementOut)
+async def remove_stock(
+    request: RemoveStockRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_permission("inventory:adjust")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Remueve stock de un producto (Solo Admins/Managers)"""
+    service = InventoryService(db)
+    
+    movement = await service.remove_stock(
+        product_id=request.product_id,
+        branch_id=request.branch_id,
+        quantity=request.quantity,
+        tenant_id=current_user.tenant_id,
+        reference=request.reference,
+        notes=request.notes,
+        aisle=request.aisle,
+        shelf=request.shelf,
+        bin=request.bin,
+        background_tasks=background_tasks
+    )
+    
+    return movement
+
+
+@router.post("/adjust-stock", response_model=InventoryMovementOut)
+async def adjust_stock(
+    request: AdjustStockRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_permission("inventory:adjust")),
+    db: AsyncSession = Depends(get_db)
+):
+    """Ajusta el stock de un producto a un valor específico (Solo Admins/Managers)"""
+    service = InventoryService(db)
+    
+    movement = await service.adjust_stock(
+        product_id=request.product_id,
+        branch_id=request.branch_id,
+        new_stock=request.new_stock,
+        tenant_id=current_user.tenant_id,
+        reason=request.reason,
+        background_tasks=background_tasks
+    )
+    
+    return movement
+
+
+@router.get("/kardex/{product_id}", response_model=List[InventoryMovementOut])
+async def get_kardex(
+    product_id: int,
+    tenant_id: int = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene el historial completo (sin paginación) de movimientos para un producto (Kardex)"""
+    repo = InventoryMovementRepository(db)
+    items, _ = await repo.get_by_product(product_id, tenant_id)
+    return items

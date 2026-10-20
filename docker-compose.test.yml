@@ -19,6 +19,7 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/inventory_saas_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/inventory_saas_test
       SECRET_KEY: test-secret-key
       ENVIRONMENT: testing
     depends_on:

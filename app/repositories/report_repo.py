@@ -44,7 +44,7 @@ class ReportRepository:
         exits = sum(row.count for row in m_rows if row.movement_type == MovementType.EXIT)
 
         # 3. Meta de ventas del Tenant
-        from ..models.tenant import Tenant
+        from app.modules.identity.infrastructure.persistence.models.tenant import Tenant
         tenant_query = select(Tenant.monthly_sales_goal).where(Tenant.id == tenant_id)
         tenant_result = await self.db.execute(tenant_query)
         tenant_goal = tenant_result.scalar_one_or_none() or 0.0

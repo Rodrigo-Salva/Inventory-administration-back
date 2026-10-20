@@ -1,0 +1,1 @@
+"""Contratos de aplicación compartidos."""

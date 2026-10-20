@@ -9,7 +9,7 @@ from ..core.exceptions import (
     InsufficientStockException,
     InvalidStockOperationException
 )
-from ..core.logging_config import get_logger
+from ..core.logging import get_logger
 from .notification_service import NotificationService
 from .stock_alert_service import StockAlertService
 from fastapi import BackgroundTasks
@@ -72,7 +72,7 @@ class InventoryService(BaseService):
         
         # Obtener stock de la sucursal
         from sqlalchemy import select
-        from ..models.product_branch import ProductBranch
+        from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
         query = select(ProductBranch).where(
             ProductBranch.product_id == product_id,
             ProductBranch.branch_id == branch_id
@@ -181,7 +181,7 @@ class InventoryService(BaseService):
         
         # Verificar stock en la sucursal
         from sqlalchemy import select
-        from ..models.product_branch import ProductBranch
+        from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
         query = select(ProductBranch).where(
             ProductBranch.product_id == product_id,
             ProductBranch.branch_id == branch_id
@@ -279,7 +279,7 @@ class InventoryService(BaseService):
         
         # Obtener stock de la sucursal
         from sqlalchemy import select
-        from ..models.product_branch import ProductBranch
+        from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
         query = select(ProductBranch).where(
             ProductBranch.product_id == product_id,
             ProductBranch.branch_id == branch_id

@@ -1,22 +1,18 @@
 from .base_repository import BaseRepository
-from .product_repo import ProductRepository
-from .category_repo import CategoryRepository
-from .supplier_repo import SupplierRepository
-from .inventory_movement_repo import InventoryMovementRepository
+from app.modules.catalog.infrastructure.persistence.repositories.product_repo import ProductRepository
+from app.modules.catalog.infrastructure.persistence.repositories.category_repo import CategoryRepository
+from app.modules.catalog.infrastructure.persistence.repositories.supplier_repo import SupplierRepository
+from app.modules.inventory.infrastructure.persistence.repositories.inventory_movement_repo import InventoryMovementRepository
 from .stock_alert_repo import StockAlertRepository
-from .tenant_repo import TenantRepository
+from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
 from .customer_repo import CustomerRepository
-from .purchase_repo import PurchaseRepository
+from app.modules.purchasing.infrastructure.persistence.repositories.purchase_repo import PurchaseRepository
 from .sale_repo import SaleRepository
 from .quote_repo import QuoteRepository
 from .credit_repo import CreditRepository
 from .payment_repo import PaymentRepository
 
-# Mantener UserRepository si existe
-try:
-    from .user_repo import UserRepository
-except ImportError:
-    UserRepository = None
+from app.modules.identity.infrastructure.persistence.repositories.user_repo import UserRepository
 
 __all__ = [
     "BaseRepository",

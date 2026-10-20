@@ -3,8 +3,8 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from ..models.sale import Sale, SaleItem
-from ..models.product_branch import ProductBranch
-from ..models.product import Product
+from app.modules.inventory.infrastructure.persistence.models.product_branch import ProductBranch
+from app.modules.catalog.infrastructure.persistence.models.product import Product
 from ..core.exceptions import ProductNotFoundException
 
 class PickingService:
@@ -53,7 +53,7 @@ class PickingService:
         
         if not branch_id:
             # Fallback: intentar obtener la primera sucursal donde hay movimiento para esta venta
-            from ..models.inventory_movement import InventoryMovement
+            from app.modules.inventory.infrastructure.persistence.models.inventory_movement import InventoryMovement
             mov_query = select(InventoryMovement.branch_id).where(
                 InventoryMovement.reference == f"VENTA #{sale_id}",
                 InventoryMovement.tenant_id == tenant_id

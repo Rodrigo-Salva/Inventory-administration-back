@@ -3,7 +3,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload, selectinload
 from .base_repository import BaseRepository
 from ..models.quote import Quote, QuoteItem, QuoteStatus
-from ..models.product import Product
+from app.modules.catalog.infrastructure.persistence.models.product import Product
 from ..models.customer import Customer
 from ..core.exceptions import ProductNotFoundException
 from decimal import Decimal
