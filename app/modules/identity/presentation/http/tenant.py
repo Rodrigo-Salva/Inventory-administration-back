@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models.base import get_db
-from ...dependencies import get_current_admin, get_current_tenant, get_current_user
-from ...repositories.tenant_repo import TenantRepository
-from ...schemas.tenant import TenantOut, TenantUpdate
-from ...core.logging_config import get_logger
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_admin, get_current_tenant, get_current_user
+from app.modules.identity.infrastructure.persistence.repositories.tenant_repo import TenantRepository
+from app.modules.identity.presentation.http.schemas import TenantOut, TenantUpdate
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

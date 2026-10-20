@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..models import Tenant
-from .base_repository import BaseRepository
+from app.modules.identity.infrastructure.persistence.models import Tenant
+from app.repositories.base_repository import BaseRepository
 
 class TenantRepository(BaseRepository[Tenant]):
     """Repositorio para tenants"""

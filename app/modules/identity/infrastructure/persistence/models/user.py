@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from app.shared.infrastructure.database import Base, TimestampMixin
 
 class UserRole(str, enum.Enum):
     SUPERADMIN = "SUPERADMIN" # Global admin (platform)

@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from ...models import get_db, User
-from ...dependencies import get_current_admin, require_permission, get_current_user, get_current_tenant
-from ...schemas.role import RoleOut, RoleCreate, RoleUpdate, PermissionOut
-from ...repositories.role_repo import RoleRepository
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_admin, require_permission, get_current_user, get_current_tenant
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.modules.identity.presentation.http.schemas import RoleOut, RoleCreate, RoleUpdate, PermissionOut
+from app.modules.identity.infrastructure.persistence.repositories.role_repo import RoleRepository
 
 router = APIRouter(tags=["Roles & Permissions"])
 

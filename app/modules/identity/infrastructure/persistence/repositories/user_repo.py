@@ -3,9 +3,9 @@ from datetime import datetime
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from .base_repository import BaseRepository
-from ..models import User, Role
-from ..core.pagination import PaginationParams
+from app.core.pagination import PaginationParams
+from app.modules.identity.infrastructure.persistence.models import Role, User
+from app.repositories.base_repository import BaseRepository
 
 class UserRepository(BaseRepository[User]):
     """Repositorio para usuarios"""

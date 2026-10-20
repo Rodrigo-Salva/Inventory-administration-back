@@ -5,15 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import os
 import shutil
 
-from ...models.base import get_db
-from ...models import User
-from ...dependencies import get_current_admin, get_current_tenant, get_current_user, require_role, require_permission
-from ...models.user import User, UserRole
-from ...repositories.user_repo import UserRepository
-from ...schemas.user import UserCreate, UserUpdate, UserOut
-from ...core.security import get_password_hash
-from ...core.logging_config import get_logger
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_admin, get_current_tenant, get_current_user, require_role, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.repositories.user_repo import UserRepository
+from app.modules.identity.presentation.http.schemas import UserCreate, UserUpdate, UserOut
+from app.core.security import get_password_hash
+from app.core.logging import get_logger
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
 
 logger = get_logger(__name__)
 router = APIRouter()

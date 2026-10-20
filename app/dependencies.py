@@ -2,9 +2,9 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from .core.security import verify_token
-from .models import get_db
+from .shared.infrastructure.database import get_db
 from .repositories import UserRepository
-from .models.user import User, UserRole
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
 
 security = HTTPBearer()
 
@@ -21,7 +21,7 @@ async def get_current_user(
     # Esto es CRÍTICIO para que el frontend reciba los permisos y los respete
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    from .models.role import Role
+    from app.modules.identity.infrastructure.persistence.models.role import Role
     
     query = select(User).where(User.id == payload["user_id"]).options(
         selectinload(User.role_obj).selectinload(Role.permissions)

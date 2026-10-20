@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, func
-from sqlalchemy.sql import expression
+from sqlalchemy import Column, Integer, String, DateTime, Float, func
 from sqlalchemy.orm import relationship
-from .base import Base
+from app.shared.infrastructure.database import Base
 
 class Tenant(Base):
     __tablename__ = "tenants"
@@ -19,7 +18,7 @@ class Tenant(Base):
     country = Column(String(100), nullable=True)
     logo_url = Column(String(255), nullable=True)
     plan = Column(String(20), default="free")  # free, pro, enterprise
-    monthly_sales_goal = Column(expression.Float, default=0.0)
+    monthly_sales_goal = Column(Float, default=0.0)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

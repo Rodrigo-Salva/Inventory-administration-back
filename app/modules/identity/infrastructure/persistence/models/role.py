@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from app.shared.infrastructure.database import Base, TimestampMixin
 
 # Tabla intermedia para muchos a muchos entre Roles y Permisos
 role_permissions = Table(
