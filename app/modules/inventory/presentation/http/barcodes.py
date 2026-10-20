@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from ...dependencies import require_permission
-from ...services.barcode_service import BarcodeService
-from ...models.user import User
+from app.dependencies import require_permission
+from app.services.barcode_service import BarcodeService
+from app.modules.identity.infrastructure.persistence.models.user import User
 
 router = APIRouter()
 

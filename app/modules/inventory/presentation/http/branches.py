@@ -1,18 +1,18 @@
 from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models import get_db
-from ...dependencies import get_current_tenant, get_current_user, require_permission
-from ...models.user import User
-from ...repositories.branch_repo import BranchRepository
-from ...schemas.branch import (
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_tenant, get_current_user, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.modules.inventory.infrastructure.persistence.repositories.branch_repo import BranchRepository
+from app.modules.inventory.presentation.http.branch import (
     BranchCreate,
     BranchUpdate,
     BranchResponse
 )
-from ...core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
-from ...core.exceptions import ResourceNotFoundException
-from ...core.logging_config import get_logger
+from app.core.pagination import PaginationParams, PaginatedResponse, create_pagination_metadata
+from app.core.exceptions import ResourceNotFoundException
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

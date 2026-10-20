@@ -1,11 +1,11 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models.base import get_db
-from ...dependencies import require_role
-from ...models.user import User, UserRole
-from ...schemas.adjustment import AdjustmentCreate, AdjustmentOut
-from ...repositories.adjustment_repo import AdjustmentRepository
+from app.shared.infrastructure.database import get_db
+from app.dependencies import require_role
+from app.modules.identity.infrastructure.persistence.models.user import User, UserRole
+from app.modules.inventory.presentation.http.adjustment import AdjustmentCreate, AdjustmentOut
+from app.modules.inventory.infrastructure.persistence.repositories.adjustment_repo import AdjustmentRepository
 
 router = APIRouter()
 

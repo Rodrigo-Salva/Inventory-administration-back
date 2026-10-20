@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
-from ..models.adjustment import AdjustmentReason
+from app.modules.inventory.infrastructure.persistence.models.adjustment import AdjustmentReason
 
 class AdjustmentBase(BaseModel):
     product_id: int

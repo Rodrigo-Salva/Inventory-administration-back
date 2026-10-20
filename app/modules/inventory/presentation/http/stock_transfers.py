@@ -1,11 +1,11 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models.base import get_db
-from ...dependencies import require_permission
-from ...models.user import User
-from ...schemas.stock_transfer import StockTransferCreate, StockTransferOut, StockTransferUpdate
-from ...repositories.stock_transfer_repo import StockTransferRepository
+from app.shared.infrastructure.database import get_db
+from app.dependencies import require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.modules.inventory.presentation.http.stock_transfer import StockTransferCreate, StockTransferOut, StockTransferUpdate
+from app.modules.inventory.infrastructure.persistence.repositories.stock_transfer_repo import StockTransferRepository
 
 router = APIRouter()
 

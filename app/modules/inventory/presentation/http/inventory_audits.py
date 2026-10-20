@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...models import get_db
-from ...dependencies import get_current_user, require_permission
-from ...models.user import User
-from ...services.inventory_audit_service import InventoryAuditService
-from ...schemas.inventory_audit import (
+from app.shared.infrastructure.database import get_db
+from app.dependencies import get_current_user, require_permission
+from app.modules.identity.infrastructure.persistence.models.user import User
+from app.services.inventory_audit_service import InventoryAuditService
+from app.modules.inventory.presentation.http.inventory_audit import (
     InventoryAuditCreate,
     InventoryAuditOut,
     InventoryAuditItemCreate,
@@ -19,7 +19,7 @@ async def list_audits(
     current_user: User = Depends(require_permission("inventory:audits")),
     db: AsyncSession = Depends(get_db)
 ):
-    from ...repositories.inventory_audit_repo import InventoryAuditRepository
+    from app.modules.inventory.infrastructure.persistence.repositories.inventory_audit_repo import InventoryAuditRepository
     repo = InventoryAuditRepository(db)
     return await repo.get_recent(current_user.tenant_id)
 
@@ -68,7 +68,7 @@ async def get_audit(
     current_user: User = Depends(require_permission("inventory:audits")),
     db: AsyncSession = Depends(get_db)
 ):
-    from ...repositories.inventory_audit_repo import InventoryAuditRepository
+    from app.modules.inventory.infrastructure.persistence.repositories.inventory_audit_repo import InventoryAuditRepository
     repo = InventoryAuditRepository(db)
     audit = await repo.get_with_items(audit_id, current_user.tenant_id)
     if not audit:

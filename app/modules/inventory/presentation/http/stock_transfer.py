@@ -1,9 +1,9 @@
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from ..models.stock_transfer import StockTransferStatus
+from app.modules.inventory.infrastructure.persistence.models.stock_transfer import StockTransferStatus
 from .branch import BranchResponse
-from .product import ProductOut
+from app.modules.catalog.presentation.http.product import ProductOut
 
 class StockTransferItemBase(BaseModel):
     product_id: int

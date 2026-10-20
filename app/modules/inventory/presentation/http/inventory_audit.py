@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
-from .product import ProductOut
+from app.modules.catalog.presentation.http.product import ProductOut
 
 class InventoryAuditItemBase(BaseModel):
     product_id: int
