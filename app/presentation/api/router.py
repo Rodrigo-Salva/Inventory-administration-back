@@ -6,15 +6,15 @@ mientras se trasladan gradualmente a sus respectivos paquetes de `modules`.
 
 from fastapi import FastAPI
 
-from app.core.config import settings
-from app.modules.catalog.presentation import router as catalog_router
-from app.modules.identity.presentation import router as identity_router
-from app.modules.integrations.presentation import router as integrations_router
-from app.modules.inventory.presentation import router as inventory_router
-from app.modules.purchasing.presentation import router as purchasing_router
-from app.modules.platform.presentation import http as platform_api
-from app.modules.reporting.presentation import router as reporting_router
-from app.modules.sales.presentation import router as sales_router
+from app.infrastructure.config import settings
+from app.presentation.api.v1.catalog import router as catalog_router
+from app.presentation.api.v1.identity import router as identity_router
+from app.presentation.api.v1.integrations import router as integrations_router
+from app.presentation.api.v1.inventory import router as inventory_router
+from app.presentation.api.v1.purchasing import router as purchasing_router
+from app.presentation.api.v1.platform import health as platform_api
+from app.presentation.api.v1.reporting import router as reporting_router
+from app.presentation.api.v1.sales import router as sales_router
 
 
 def register_routers(app: FastAPI) -> None:

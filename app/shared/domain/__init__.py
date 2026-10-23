@@ -1,1 +1,0 @@
-"""Primitivas de dominio reutilizables."""
