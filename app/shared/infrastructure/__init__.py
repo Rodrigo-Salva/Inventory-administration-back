@@ -1,1 +1,0 @@
-"""Adaptadores técnicos compartidos."""

@@ -1,1 +1,0 @@
-"""Objetos de valor compartidos."""

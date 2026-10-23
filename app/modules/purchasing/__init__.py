@@ -1,1 +1,0 @@
-"""Abastecimiento y gastos operativos."""

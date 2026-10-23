@@ -1,1 +1,0 @@
-"""Adaptadores HTTP de inventario."""

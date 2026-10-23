@@ -1,12 +1,7 @@
 import pytest
 
-from app.modules.identity.application.use_cases import (
-    AuthenticateUser,
-    EmailAlreadyRegisteredError,
-    RegisterTenantOwner,
-    RegisterTenantOwnerCommand,
-)
-from app.modules.identity.domain.entities import Identity, RegisteredTenantOwner
+from app.application.identity.use_cases import AuthenticateUser, EmailAlreadyRegisteredError, RegisterTenantOwner, RegisterTenantOwnerCommand
+from app.domain.identity.entities import Identity, RegisteredTenantOwner
 
 
 class FakeIdentityRepository:
@@ -35,28 +30,28 @@ async def test_register_owner_uses_ports_without_infrastructure():
     repository = FakeIdentityRepository()
     use_case = RegisterTenantOwner(repository, FakePasswordHasher())
 
-    owner = await use_case.execute(RegisterTenantOwnerCommand("owner@example.com", "secret"))
+    owner = await use_case.execute(RegisterTenantOwnerCommand("owner@example.com", "secret123"))
 
     assert owner == RegisteredTenantOwner(user_id=1, tenant_id=10)
-    assert repository.created == ("owner@example.com", "hash:secret")
+    assert repository.created == ("owner@example.com", "hash:secret123")
 
 
 @pytest.mark.asyncio
 async def test_register_owner_rejects_duplicate_email():
     repository = FakeIdentityRepository(
-        Identity(1, 10, "owner@example.com", "hash:secret", True)
+        Identity(1, 10, "owner@example.com", "hash:secret123", True)
     )
 
     with pytest.raises(EmailAlreadyRegisteredError):
         await RegisterTenantOwner(repository, FakePasswordHasher()).execute(
-            RegisterTenantOwnerCommand("owner@example.com", "secret")
+            RegisterTenantOwnerCommand("owner@example.com", "secret123")
         )
 
 
 @pytest.mark.asyncio
 async def test_authenticate_returns_only_active_valid_identity():
-    identity = Identity(1, 10, "owner@example.com", "hash:secret", True)
+    identity = Identity(1, 10, "owner@example.com", "hash:secret123", True)
     use_case = AuthenticateUser(FakeIdentityRepository(identity), FakePasswordHasher())
 
-    assert await use_case.execute("owner@example.com", "secret") == identity
+    assert await use_case.execute("owner@example.com", "secret123") == identity
     assert await use_case.execute("owner@example.com", "invalid") is None
