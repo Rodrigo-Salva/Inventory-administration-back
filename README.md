@@ -24,8 +24,8 @@ Con estos pasos tendrás el backend funcionando en tu máquina. Tiempo estimado:
 **1. Clona e instala las dependencias**
 
 ```bash
-git clone https://github.com/Rodrigo-Salva/Inventory-administration.git
-cd Inventory-administration
+git clone https://github.com/Rodrigo-Salva/Inventory-administration-back.git
+cd Inventory-administration-back
 
 python -m venv .venv
 
@@ -96,8 +96,8 @@ curl http://localhost:8000/health
 Solo necesitas Docker (no hace falta instalar Python ni PostgreSQL).
 
 ```bash
-git clone https://github.com/Rodrigo-Salva/Inventory-administration.git
-cd Inventory-administration
+git clone https://github.com/Rodrigo-Salva/Inventory-administration-back.git
+cd Inventory-administration-back
 cp .env.example .env
 ```
 
