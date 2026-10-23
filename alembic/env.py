@@ -11,8 +11,9 @@ from pathlib import Path
 # Agregar el directorio raíz al path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.models import Base
-from app.core.config import settings
+from app.infrastructure.persistence.database import Base
+import app.infrastructure.persistence.models  # noqa: F401  (registra todos los modelos en Base.metadata)
+from app.infrastructure.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
