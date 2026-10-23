@@ -1,1 +1,0 @@
-"""Adaptadores externos de identidad."""

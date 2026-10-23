@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 venv/
 __pycache__/
 **/__pycache__/
@@ -11,3 +13,6 @@ dist/
 build/
 *.spec
 .env.docker
+
+*.sql
+respaldo*

@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from app.modules.identity.presentation.http import router as identity_http
+from app.presentation.api.v1.identity import auth as identity_http
 
 @pytest.mark.asyncio
 async def test_login_invalid_credentials(client: AsyncClient, monkeypatch):

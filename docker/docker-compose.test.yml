@@ -1,0 +1,30 @@
+version: "3.8"
+name: inventory-saas
+
+services:
+  test_db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: inventory_saas_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test_runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/inventory_saas_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/inventory_saas_test
+      SECRET_KEY: test-secret-key
+      ENVIRONMENT: testing
+    depends_on:
+      test_db:
+        condition: service_healthy
+    command:
+      ["pytest", "tests/", "-v", "--cov=app", "--cov-report=term-missing"]
