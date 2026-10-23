@@ -22,7 +22,7 @@ echo "✅ Migrations complete!"
 # Run seeds
 if [ "$RUN_SEEDS" = "true" ]; then
   echo "🌱 Running database seeds..."
-  python -m app.seeds.seed_data
+  python -m app.infrastructure.seeds.seed_data
   echo "✅ Seeds complete!"
 fi
 
