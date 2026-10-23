@@ -7,8 +7,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.main import app
-from app.shared.infrastructure.database import get_db
-from app.core.config import settings
+from app.infrastructure.persistence.database import get_db
+from app.infrastructure.config import settings
 
 # Nunca usar la base de desarrollo para pruebas. CI y docker-compose.test
 # declaran TEST_DATABASE_URL; el fallback solo construye un nombre separado.
