@@ -1,4 +1,4 @@
-# ⚙️ Manual Técnico de Ingeniería: Motor del Backend (inventory-saas)
+# ⚙️ Manual Técnico de Ingeniería: Motor del Backend Completo (inventory-saas)
 
 Backend de **Inventory SaaS** (FastAPI + PostgreSQL, Clean Architecture). ¿Solo quieres ejecutarlo? Ve directo al [Inicio rápido](#-inicio-rápido-clonar-y-ejecutar). Más abajo está el manual técnico: decisiones de arquitectura, seguridad, persistencia y pruebas. Para usar la API, ve a [Usar la API](#-usar-la-api).
 
